@@ -25,14 +25,7 @@ type ConversacionDetalle = {
 async function obtenerConversacion(id: string): Promise<ConversacionDetalle | null> {
   const { data, error } = await supabaseAdmin
     .from("conversaciones")
-    .select(`
-      id,
-      ultima_actividad,
-      contactos (
-        telefono,
-        nombre
-      )
-    `)
+    .select("id, contacto_id, ultima_actividad")
     .eq("id", id)
     .maybeSingle();
 
@@ -45,12 +38,25 @@ async function obtenerConversacion(id: string): Promise<ConversacionDetalle | nu
     return null;
   }
 
+  const { data: contacto, error: errorContacto } = await supabaseAdmin
+    .from("contactos")
+    .select("telefono, nombre")
+    .eq("id", data.contacto_id)
+    .maybeSingle();
+
+  if (errorContacto) {
+    console.error("Error cargando contacto:", errorContacto);
+  }
+
   return {
     id: data.id,
     ultima_actividad: data.ultima_actividad,
-    contactos: Array.isArray(data.contactos)
-      ? data.contactos[0] ?? null
-      : data.contactos ?? null,
+    contactos: contacto
+      ? {
+          telefono: contacto.telefono,
+          nombre: contacto.nombre,
+        }
+      : null,
   };
 }
 
@@ -85,6 +91,76 @@ function formatearHora(fechaIso: string | null) {
     hour: "numeric",
     minute: "2-digit",
   }).format(new Date(fechaIso));
+}
+
+function obtenerEtiquetaTipoMensaje(mensaje: Mensaje) {
+  switch (mensaje.tipo) {
+    case "text":
+      return "Texto";
+    case "document":
+      return "Documento";
+    case "image":
+      return "Imagen";
+    case "video":
+      return "Video";
+    case "audio":
+      return "Audio";
+    default:
+      return mensaje.tipo || "Mensaje";
+  }
+}
+
+function obtenerContenidoMensaje(mensaje: Mensaje) {
+  if (mensaje.tipo === "text" && mensaje.texto) {
+    return (
+      <p className="mt-1 whitespace-pre-wrap text-sm">
+        {mensaje.texto}
+      </p>
+    );
+  }
+
+  if (mensaje.tipo === "document") {
+    return (
+      <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
+        <p className="font-medium">
+          📄 {mensaje.nombre_archivo || "Documento recibido"}
+        </p>
+        {mensaje.mime_type ? (
+          <p className="mt-1 text-xs opacity-70">{mensaje.mime_type}</p>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (mensaje.tipo === "image") {
+    return (
+      <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
+        📷 Imagen recibida
+      </div>
+    );
+  }
+
+  if (mensaje.tipo === "video") {
+    return (
+      <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
+        🎥 Video recibido
+      </div>
+    );
+  }
+
+  if (mensaje.tipo === "audio") {
+    return (
+      <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
+        🎙️ Audio recibido
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
+      Mensaje recibido
+    </div>
+  );
 }
 
 export default async function ChatPage({
@@ -147,20 +223,10 @@ export default async function ChatPage({
                     }`}
                   >
                     <p className="text-xs opacity-70">
-                      {mensaje.tipo.toUpperCase()}
+                      {obtenerEtiquetaTipoMensaje(mensaje)}
                     </p>
 
-                    {mensaje.texto ? (
-                      <p className="mt-1 whitespace-pre-wrap text-sm">
-                        {mensaje.texto}
-                      </p>
-                    ) : null}
-
-                    {mensaje.nombre_archivo ? (
-                      <p className="mt-2 text-sm">
-                        Archivo: {mensaje.nombre_archivo}
-                      </p>
-                    ) : null}
+                    {obtenerContenidoMensaje(mensaje)}
 
                     <p className="mt-2 text-[11px] opacity-60">
                       {formatearHora(mensaje.fecha_mensaje)}
@@ -173,8 +239,20 @@ export default async function ChatPage({
         </section>
 
         <footer className="border-t border-neutral-200 bg-white p-3">
-          <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-400">
-            Aquí luego pondremos la caja para responder mensajes.
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Escribe un mensaje..."
+              className="flex-1 rounded-xl border border-neutral-200 px-4 py-3 text-sm outline-none"
+              disabled
+            />
+            <button
+              type="button"
+              className="rounded-xl bg-neutral-900 px-4 py-3 text-sm font-medium text-white opacity-60"
+              disabled
+            >
+              Enviar
+            </button>
           </div>
         </footer>
       </div>
