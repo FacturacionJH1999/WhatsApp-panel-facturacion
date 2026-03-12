@@ -10,95 +10,78 @@ type Mensaje = {
   nombre_archivo: string | null;
   mime_type: string | null;
   url_archivo: string | null;
-  storage_path: string | null;
-  tamano_bytes: number | null;
   fecha_mensaje: string | null;
-};
-
-type Conversacion = {
-  id: string;
-  contacto_id: string;
-  ultima_actividad: string;
-};
-
-type Contacto = {
-  telefono: string;
-  nombre: string | null;
 };
 
 type ConversacionDetalle = {
   id: string;
-  contacto_id: string;
   ultima_actividad: string;
-  contacto: Contacto | null;
+  contactos: {
+    telefono: string;
+    nombre: string | null;
+  } | null;
 };
 
 async function obtenerConversacion(id: string): Promise<ConversacionDetalle | null> {
-  const idLimpio = decodeURIComponent(id);
-
-  const { data: conversacion, error: errorConversacion } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("conversaciones")
     .select("id, contacto_id, ultima_actividad")
-    .eq("id", idLimpio)
-    .maybeSingle<Conversacion>();
+    .eq("id", id)
+    .maybeSingle();
 
-  if (errorConversacion) {
-    console.error("Error cargando conversación:", {
-      message: errorConversacion.message,
-      details: errorConversacion.details,
-      hint: errorConversacion.hint,
-      code: errorConversacion.code,
-    });
+  if (error) {
+    console.error("Error cargando conversación:", error);
     return null;
   }
 
-  if (!conversacion) {
+  if (!data) {
     return null;
   }
 
   const { data: contacto, error: errorContacto } = await supabaseAdmin
     .from("contactos")
     .select("telefono, nombre")
-    .eq("id", conversacion.contacto_id)
-    .maybeSingle<Contacto>();
+    .eq("id", data.contacto_id)
+    .maybeSingle();
 
   if (errorContacto) {
-    console.error("Error cargando contacto:", {
-      message: errorContacto.message,
-      details: errorContacto.details,
-      hint: errorContacto.hint,
-      code: errorContacto.code,
-    });
+    console.error("Error cargando contacto:", errorContacto);
   }
 
   return {
-    id: conversacion.id,
-    contacto_id: conversacion.contacto_id,
-    ultima_actividad: conversacion.ultima_actividad,
-    contacto: contacto ?? null,
+    id: data.id,
+    ultima_actividad: data.ultima_actividad,
+    contactos: contacto
+      ? {
+          telefono: contacto.telefono,
+          nombre: contacto.nombre,
+        }
+      : null,
   };
 }
 
 async function obtenerMensajes(conversacionId: string): Promise<Mensaje[]> {
   const { data, error } = await supabaseAdmin
     .from("mensajes")
-    .select(
-      "id, direccion, tipo, texto, nombre_archivo, mime_type, url_archivo, storage_path, tamano_bytes, fecha_mensaje"
-    )
+    .select(`
+      id,
+      direccion,
+      tipo,
+      texto,
+      nombre_archivo,
+      mime_type,
+      url_archivo,
+      fecha_mensaje
+    `)
     .eq("conversacion_id", conversacionId)
     .order("fecha_mensaje", { ascending: true });
 
   if (error) {
-    console.error("Error cargando mensajes:", {
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
-      code: error.code,
-    });
+    console.error("Error cargando mensajes:", error);
     return [];
   }
 
-  return (data ?? []) as Mensaje[];
+  return data ?? [];
 }
 
 function formatearHora(fechaIso: string | null) {
@@ -110,16 +93,8 @@ function formatearHora(fechaIso: string | null) {
   }).format(new Date(fechaIso));
 }
 
-function formatearTamano(bytes: number | null) {
-  if (!bytes || bytes <= 0) return null;
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
-
-function obtenerEtiquetaTipoMensaje(tipo: string) {
-  switch (tipo) {
+function obtenerEtiquetaTipoMensaje(mensaje: Mensaje) {
+  switch (mensaje.tipo) {
     case "text":
       return "Texto";
     case "document":
@@ -131,22 +106,77 @@ function obtenerEtiquetaTipoMensaje(tipo: string) {
     case "audio":
       return "Audio";
     default:
-      return tipo || "Mensaje";
+      return mensaje.tipo || "Mensaje";
   }
+}
+
+function obtenerContenidoMensaje(mensaje: Mensaje) {
+  if (mensaje.tipo === "text" && mensaje.texto) {
+    return (
+      <p className="mt-1 whitespace-pre-wrap text-sm">
+        {mensaje.texto}
+      </p>
+    );
+  }
+
+  if (mensaje.tipo === "document") {
+    return (
+      <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
+        <p className="font-medium">
+          📄 {mensaje.nombre_archivo || "Documento recibido"}
+        </p>
+        {mensaje.mime_type ? (
+          <p className="mt-1 text-xs opacity-70">{mensaje.mime_type}</p>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (mensaje.tipo === "image") {
+    return (
+      <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
+        📷 Imagen recibida
+      </div>
+    );
+  }
+
+  if (mensaje.tipo === "video") {
+    return (
+      <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
+        🎥 Video recibido
+      </div>
+    );
+  }
+
+  if (mensaje.tipo === "audio") {
+    return (
+      <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
+        🎙️ Audio recibido
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
+      Mensaje recibido
+    </div>
+  );
 }
 
 export default async function ChatPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const conversacion = await obtenerConversacion(params.id);
+  const { id } = await params;
+
+  const conversacion = await obtenerConversacion(id);
 
   if (!conversacion) {
     notFound();
   }
 
-  const mensajes = await obtenerMensajes(conversacion.id);
+  const mensajes = await obtenerMensajes(id);
 
   return (
     <main className="min-h-screen bg-neutral-100">
@@ -161,12 +191,12 @@ export default async function ChatPage({
 
           <div>
             <h1 className="text-sm font-semibold text-neutral-900">
-              {conversacion.contacto?.nombre?.trim() ||
-                conversacion.contacto?.telefono ||
+              {conversacion.contactos?.nombre?.trim() ||
+                conversacion.contactos?.telefono ||
                 "Sin nombre"}
             </h1>
             <p className="text-xs text-neutral-500">
-              {conversacion.contacto?.telefono || "Sin teléfono"}
+              {conversacion.contactos?.telefono || "Sin teléfono"}
             </p>
           </div>
         </header>
@@ -179,8 +209,6 @@ export default async function ChatPage({
           ) : (
             mensajes.map((mensaje) => {
               const esEntrante = mensaje.direccion === "entrante";
-              const tamano = formatearTamano(mensaje.tamano_bytes);
-              const tieneArchivo = Boolean(mensaje.url_archivo || mensaje.storage_path);
 
               return (
                 <div
@@ -195,70 +223,10 @@ export default async function ChatPage({
                     }`}
                   >
                     <p className="text-xs opacity-70">
-                      {obtenerEtiquetaTipoMensaje(mensaje.tipo)}
+                      {obtenerEtiquetaTipoMensaje(mensaje)}
                     </p>
 
-                    {mensaje.tipo === "text" && mensaje.texto ? (
-                      <p className="mt-1 whitespace-pre-wrap text-sm">{mensaje.texto}</p>
-                    ) : null}
-
-                    {mensaje.tipo === "document" ? (
-                      <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
-                        <p className="font-medium">
-                          📄 {mensaje.nombre_archivo || "Documento recibido"}
-                        </p>
-                        {mensaje.mime_type ? (
-                          <p className="mt-1 text-xs opacity-70">{mensaje.mime_type}</p>
-                        ) : null}
-                        {tamano ? (
-                          <p className="mt-1 text-xs opacity-70">Tamaño: {tamano}</p>
-                        ) : null}
-                        {tieneArchivo ? (
-                          <p className="mt-2 text-xs font-medium text-blue-600">
-                            Archivo guardado en el sistema
-                          </p>
-                        ) : null}
-                      </div>
-                    ) : null}
-
-                    {mensaje.tipo === "image" ? (
-                      <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
-                        <p>📷 Imagen recibida</p>
-                        {tieneArchivo ? (
-                          <p className="mt-2 text-xs font-medium text-blue-600">
-                            Imagen guardada en el sistema
-                          </p>
-                        ) : null}
-                      </div>
-                    ) : null}
-
-                    {mensaje.tipo === "video" ? (
-                      <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
-                        <p>🎥 Video recibido</p>
-                        {tamano ? (
-                          <p className="mt-1 text-xs opacity-70">Tamaño: {tamano}</p>
-                        ) : null}
-                        {tieneArchivo ? (
-                          <p className="mt-2 text-xs font-medium text-blue-600">
-                            Video guardado en el sistema
-                          </p>
-                        ) : null}
-                      </div>
-                    ) : null}
-
-                    {mensaje.tipo === "audio" ? (
-                      <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
-                        <p>🎙️ Audio recibido</p>
-                        {tamano ? (
-                          <p className="mt-1 text-xs opacity-70">Tamaño: {tamano}</p>
-                        ) : null}
-                        {tieneArchivo ? (
-                          <p className="mt-2 text-xs font-medium text-blue-600">
-                            Audio guardado en el sistema
-                          </p>
-                        ) : null}
-                      </div>
-                    ) : null}
+                    {obtenerContenidoMensaje(mensaje)}
 
                     <p className="mt-2 text-[11px] opacity-60">
                       {formatearHora(mensaje.fecha_mensaje)}
