@@ -11,6 +11,8 @@ type Mensaje = {
   mime_type: string | null;
   url_archivo: string | null;
   fecha_mensaje: string | null;
+  storage_path?: string | null;
+  tamano_bytes?: number | null;
 };
 
 type ConversacionDetalle = {
@@ -71,6 +73,8 @@ async function obtenerMensajes(conversacionId: string): Promise<Mensaje[]> {
       nombre_archivo,
       mime_type,
       url_archivo,
+      storage_path,
+      tamano_bytes,
       fecha_mensaje
     `)
     .eq("conversacion_id", conversacionId)
@@ -93,6 +97,16 @@ function formatearHora(fechaIso: string | null) {
   }).format(new Date(fechaIso));
 }
 
+function formatearTamano(bytes?: number | null) {
+  if (!bytes || bytes <= 0) return null;
+
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
 function obtenerEtiquetaTipoMensaje(mensaje: Mensaje) {
   switch (mensaje.tipo) {
     case "text":
@@ -111,22 +125,27 @@ function obtenerEtiquetaTipoMensaje(mensaje: Mensaje) {
 }
 
 function obtenerContenidoMensaje(mensaje: Mensaje) {
+  const tamanoFormateado = formatearTamano(mensaje.tamano_bytes);
+  const tieneArchivo = Boolean(mensaje.url_archivo || mensaje.storage_path);
+
   if (mensaje.tipo === "text" && mensaje.texto) {
-    return (
-      <p className="mt-1 whitespace-pre-wrap text-sm">
-        {mensaje.texto}
-      </p>
-    );
+    return <p className="mt-1 whitespace-pre-wrap text-sm">{mensaje.texto}</p>;
   }
 
   if (mensaje.tipo === "document") {
     return (
       <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
-        <p className="font-medium">
-          📄 {mensaje.nombre_archivo || "Documento recibido"}
-        </p>
+        <p className="font-medium">📄 {mensaje.nombre_archivo || "Documento recibido"}</p>
         {mensaje.mime_type ? (
           <p className="mt-1 text-xs opacity-70">{mensaje.mime_type}</p>
+        ) : null}
+        {tamanoFormateado ? (
+          <p className="mt-1 text-xs opacity-70">Tamaño: {tamanoFormateado}</p>
+        ) : null}
+        {tieneArchivo ? (
+          <p className="mt-2 text-xs font-medium text-blue-600">
+            Archivo guardado en el sistema
+          </p>
         ) : null}
       </div>
     );
@@ -135,7 +154,12 @@ function obtenerContenidoMensaje(mensaje: Mensaje) {
   if (mensaje.tipo === "image") {
     return (
       <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
-        📷 Imagen recibida
+        <p>📷 Imagen recibida</p>
+        {tieneArchivo ? (
+          <p className="mt-2 text-xs font-medium text-blue-600">
+            Imagen guardada en el sistema
+          </p>
+        ) : null}
       </div>
     );
   }
@@ -143,7 +167,15 @@ function obtenerContenidoMensaje(mensaje: Mensaje) {
   if (mensaje.tipo === "video") {
     return (
       <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
-        🎥 Video recibido
+        <p>🎥 Video recibido</p>
+        {tamanoFormateado ? (
+          <p className="mt-1 text-xs opacity-70">Tamaño: {tamanoFormateado}</p>
+        ) : null}
+        {tieneArchivo ? (
+          <p className="mt-2 text-xs font-medium text-blue-600">
+            Video guardado en el sistema
+          </p>
+        ) : null}
       </div>
     );
   }
@@ -151,7 +183,15 @@ function obtenerContenidoMensaje(mensaje: Mensaje) {
   if (mensaje.tipo === "audio") {
     return (
       <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
-        🎙️ Audio recibido
+        <p>🎙️ Audio recibido</p>
+        {tamanoFormateado ? (
+          <p className="mt-1 text-xs opacity-70">Tamaño: {tamanoFormateado}</p>
+        ) : null}
+        {tieneArchivo ? (
+          <p className="mt-2 text-xs font-medium text-blue-600">
+            Audio guardado en el sistema
+          </p>
+        ) : null}
       </div>
     );
   }
