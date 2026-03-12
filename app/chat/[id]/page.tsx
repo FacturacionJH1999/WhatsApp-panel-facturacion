@@ -15,25 +15,40 @@ type Mensaje = {
   fecha_mensaje: string | null;
 };
 
+type Conversacion = {
+  id: string;
+  contacto_id: string;
+  ultima_actividad: string;
+};
+
+type Contacto = {
+  telefono: string;
+  nombre: string | null;
+};
+
 type ConversacionDetalle = {
   id: string;
   contacto_id: string;
   ultima_actividad: string;
-  contacto: {
-    telefono: string;
-    nombre: string | null;
-  } | null;
+  contacto: Contacto | null;
 };
 
 async function obtenerConversacion(id: string): Promise<ConversacionDetalle | null> {
+  const idLimpio = decodeURIComponent(id);
+
   const { data: conversacion, error: errorConversacion } = await supabaseAdmin
     .from("conversaciones")
     .select("id, contacto_id, ultima_actividad")
-    .eq("id", id)
-    .maybeSingle();
+    .eq("id", idLimpio)
+    .maybeSingle<Conversacion>();
 
   if (errorConversacion) {
-    console.error("Error cargando conversación:", errorConversacion);
+    console.error("Error cargando conversación:", {
+      message: errorConversacion.message,
+      details: errorConversacion.details,
+      hint: errorConversacion.hint,
+      code: errorConversacion.code,
+    });
     return null;
   }
 
@@ -45,22 +60,22 @@ async function obtenerConversacion(id: string): Promise<ConversacionDetalle | nu
     .from("contactos")
     .select("telefono, nombre")
     .eq("id", conversacion.contacto_id)
-    .maybeSingle();
+    .maybeSingle<Contacto>();
 
   if (errorContacto) {
-    console.error("Error cargando contacto:", errorContacto);
+    console.error("Error cargando contacto:", {
+      message: errorContacto.message,
+      details: errorContacto.details,
+      hint: errorContacto.hint,
+      code: errorContacto.code,
+    });
   }
 
   return {
     id: conversacion.id,
     contacto_id: conversacion.contacto_id,
     ultima_actividad: conversacion.ultima_actividad,
-    contacto: contacto
-      ? {
-          telefono: contacto.telefono,
-          nombre: contacto.nombre,
-        }
-      : null,
+    contacto: contacto ?? null,
   };
 }
 
@@ -74,11 +89,16 @@ async function obtenerMensajes(conversacionId: string): Promise<Mensaje[]> {
     .order("fecha_mensaje", { ascending: true });
 
   if (error) {
-    console.error("Error cargando mensajes:", error);
+    console.error("Error cargando mensajes:", {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+    });
     return [];
   }
 
-  return data ?? [];
+  return (data ?? []) as Mensaje[];
 }
 
 function formatearHora(fechaIso: string | null) {
