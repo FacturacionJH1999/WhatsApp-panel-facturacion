@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 type ConversacionLista = {
@@ -77,9 +78,10 @@ export default async function Home() {
               </div>
             ) : (
               conversaciones.map((conversacion) => (
-                <div
+                <Link
                   key={conversacion.id}
-                  className="rounded-xl border border-neutral-200 bg-white p-3 shadow-sm"
+                  href={`/chat/${conversacion.id}`}
+                  className="block rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition hover:bg-neutral-50"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -97,7 +99,7 @@ export default async function Home() {
                       {formatearFecha(conversacion.ultima_actividad)}
                     </p>
                   </div>
-                </div>
+                </Link>
               ))
             )}
           </div>
