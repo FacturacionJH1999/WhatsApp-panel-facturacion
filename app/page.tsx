@@ -11,33 +11,52 @@ type ConversacionLista = {
 };
 
 async function obtenerConversaciones(): Promise<ConversacionLista[]> {
-  const { data, error } = await supabaseAdmin
+  const { data: conversaciones, error: errorConversaciones } = await supabaseAdmin
     .from("conversaciones")
-    .select(`
-      id,
-      ultima_actividad,
-      contactos (
-        telefono,
-        nombre
-      )
-    `)
+    .select("id, contacto_id, ultima_actividad")
     .order("ultima_actividad", { ascending: false });
 
-  if (error) {
-    console.error("Error cargando conversaciones:", error);
+  if (errorConversaciones) {
+    console.error("Error cargando conversaciones:", errorConversaciones);
     return [];
   }
 
-  if (!data) {
+  if (!conversaciones || conversaciones.length === 0) {
     return [];
   }
 
-  return data.map((item) => ({
-    id: item.id,
-    ultima_actividad: item.ultima_actividad,
-    contactos: Array.isArray(item.contactos)
-      ? item.contactos[0] ?? null
-      : item.contactos ?? null,
+  const contactoIds = conversaciones
+    .map((conversacion) => conversacion.contacto_id)
+    .filter(Boolean);
+
+  const { data: contactos, error: errorContactos } = await supabaseAdmin
+    .from("contactos")
+    .select("id, telefono, nombre")
+    .in("id", contactoIds);
+
+  if (errorContactos) {
+    console.error("Error cargando contactos:", errorContactos);
+    return conversaciones.map((conversacion) => ({
+      id: conversacion.id,
+      ultima_actividad: conversacion.ultima_actividad,
+      contactos: null,
+    }));
+  }
+
+  const mapaContactos = new Map(
+    (contactos ?? []).map((contacto) => [
+      contacto.id,
+      {
+        telefono: contacto.telefono,
+        nombre: contacto.nombre,
+      },
+    ])
+  );
+
+  return conversaciones.map((conversacion) => ({
+    id: conversacion.id,
+    ultima_actividad: conversacion.ultima_actividad,
+    contactos: mapaContactos.get(conversacion.contacto_id) ?? null,
   }));
 }
 
