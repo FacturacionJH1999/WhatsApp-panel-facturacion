@@ -15,6 +15,11 @@ type Props = {
   disabled?: boolean;
 };
 
+type RespuestaAsignacion = {
+  ok?: boolean;
+  error?: string;
+};
+
 export function AsignacionConversacionSelector({
   conversacionId,
   usuarioActualId,
@@ -42,6 +47,7 @@ export function AsignacionConversacionSelector({
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
+            Accept: "application/json",
           },
           body: JSON.stringify({
             usuarioId: valorNuevo || null,
@@ -49,10 +55,25 @@ export function AsignacionConversacionSelector({
         }
       );
 
-      const resultado = await respuesta.json();
+      let resultado: RespuestaAsignacion | null = null;
+      const contenido = await respuesta.text();
+
+      try {
+        resultado = contenido ? JSON.parse(contenido) : null;
+      } catch {
+        resultado = null;
+      }
 
       if (!respuesta.ok || !resultado?.ok) {
         setUsuarioSeleccionado(valorAnterior);
+
+        if (!respuesta.ok && !resultado) {
+          setError(
+            "El servidor devolvió una respuesta inválida. Revisa la sesión o el endpoint."
+          );
+          return;
+        }
+
         setError(resultado?.error || "No se pudo actualizar la asignación.");
         return;
       }
@@ -61,7 +82,7 @@ export function AsignacionConversacionSelector({
         router.refresh();
       });
     } catch (error) {
-      console.error(error);
+      console.error("Error actualizando asignación:", error);
       setUsuarioSeleccionado(valorAnterior);
       setError("Ocurrió un error actualizando la asignación.");
     }
