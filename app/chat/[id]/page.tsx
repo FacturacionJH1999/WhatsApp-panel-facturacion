@@ -5,6 +5,7 @@ import { EnviarMensaje } from "./EnviarMensaje";
 import { AutoRefreshChat } from "./AutoRefreshChat";
 import { AutoScrollChat } from "./AutoScrollChat";
 import { EstadoConversacionSelector } from "./EstadoConversacionSelector";
+import { AsignacionConversacionSelector } from "./AsignacionConversacionSelector";
 import { requireUser } from "@/lib/auth/requireUser";
 import { puedeVerConversacion } from "@/lib/auth/puedeVerConversacion";
 
@@ -34,10 +35,17 @@ type ConversacionDetalle = {
   id: string;
   ultima_actividad: string;
   estado: EstadoConversacion;
+  usuarioAsignadoId: string | null;
+  usuarioAsignadoNombre: string | null;
   contactos: {
     telefono: string;
     nombre: string | null;
   } | null;
+};
+
+type UsuarioAsignable = {
+  id: string;
+  nombre: string;
 };
 
 async function obtenerConversacion(
@@ -79,10 +87,41 @@ async function obtenerConversacion(
     console.error("Error cargando contacto:", errorContacto);
   }
 
+  const { data: asignacion, error: errorAsignacion } = await supabaseAdmin
+    .from("conversaciones_asignadas")
+    .select("usuario_id")
+    .eq("conversacion_id", data.id)
+    .maybeSingle();
+
+  if (errorAsignacion) {
+    console.error("Error cargando asignación:", errorAsignacion);
+  }
+
+  let usuarioAsignadoId: string | null = asignacion?.usuario_id ?? null;
+  let usuarioAsignadoNombre: string | null = null;
+
+  if (usuarioAsignadoId) {
+    const { data: perfilAsignado, error: errorPerfilAsignado } =
+      await supabaseAdmin
+        .from("perfiles")
+        .select("id, nombre, email")
+        .eq("id", usuarioAsignadoId)
+        .maybeSingle();
+
+    if (errorPerfilAsignado) {
+      console.error("Error cargando perfil asignado:", errorPerfilAsignado);
+    }
+
+    usuarioAsignadoNombre =
+      perfilAsignado?.nombre?.trim() || perfilAsignado?.email || null;
+  }
+
   return {
     id: data.id,
     ultima_actividad: data.ultima_actividad,
     estado: (data.estado as EstadoConversacion) ?? "nueva",
+    usuarioAsignadoId,
+    usuarioAsignadoNombre,
     contactos: contacto
       ? {
           telefono: contacto.telefono,
@@ -90,6 +129,24 @@ async function obtenerConversacion(
         }
       : null,
   };
+}
+
+async function obtenerUsuariosAsignables(): Promise<UsuarioAsignable[]> {
+  const { data, error } = await supabaseAdmin
+    .from("perfiles")
+    .select("id, nombre, email, activo, rol")
+    .eq("activo", true)
+    .order("nombre", { ascending: true });
+
+  if (error) {
+    console.error("Error cargando usuarios asignables:", error);
+    return [];
+  }
+
+  return (data ?? []).map((usuario) => ({
+    id: usuario.id,
+    nombre: usuario.nombre?.trim() || usuario.email || "Usuario",
+  }));
 }
 
 async function obtenerMensajes(conversacionId: string): Promise<Mensaje[]> {
@@ -400,7 +457,11 @@ export default async function ChatPage({
     notFound();
   }
 
-  const mensajes = await obtenerMensajes(id);
+  const [mensajes, usuariosAsignables] = await Promise.all([
+    obtenerMensajes(id),
+    perfil.rol === "admin" ? obtenerUsuariosAsignables() : Promise.resolve([]),
+  ]);
+
   const esAdmin = perfil.rol === "admin";
 
   return (
@@ -429,10 +490,24 @@ export default async function ChatPage({
                 <p className="text-xs text-neutral-500">
                   {conversacion.contactos?.telefono || "Sin teléfono"}
                 </p>
+                <p className="mt-1 text-[11px] text-neutral-500">
+                  Asignado actualmente:{" "}
+                  <span className="font-medium text-neutral-700">
+                    {conversacion.usuarioAsignadoNombre || "Sin asignar"}
+                  </span>
+                </p>
               </div>
             </div>
 
             <div className="flex items-start gap-4">
+              {esAdmin ? (
+                <AsignacionConversacionSelector
+                  conversacionId={conversacion.id}
+                  usuarioActualId={conversacion.usuarioAsignadoId}
+                  usuarios={usuariosAsignables}
+                />
+              ) : null}
+
               <EstadoConversacionSelector
                 conversacionId={conversacion.id}
                 estadoActual={conversacion.estado}
