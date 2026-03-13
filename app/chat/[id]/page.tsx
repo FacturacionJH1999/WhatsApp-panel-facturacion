@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { EnviarMensaje } from "./EnviarMensaje";
 import { AutoRefreshChat } from "./AutoRefreshChat";
+import { AutoScrollChat } from "./AutoScrollChat";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -371,6 +372,7 @@ export default async function ChatPage({
   return (
     <main className="h-screen overflow-hidden bg-neutral-100">
       <AutoRefreshChat intervaloMs={3000} />
+      <AutoScrollChat />
 
       <div className="mx-auto flex h-screen max-w-5xl flex-col bg-white">
         <header className="shrink-0 border-b border-neutral-200 px-4 py-3">
@@ -396,7 +398,10 @@ export default async function ChatPage({
           </div>
         </header>
 
-        <section className="min-h-0 flex-1 overflow-y-auto bg-neutral-50 p-4">
+        <section
+          id="contenedor-mensajes"
+          className="min-h-0 flex-1 overflow-y-auto bg-neutral-50 p-4"
+        >
           <div className="space-y-3">
             {mensajes.length === 0 ? (
               <div className="rounded-xl border border-neutral-200 bg-white p-4 text-sm text-neutral-500">
