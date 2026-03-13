@@ -21,6 +21,7 @@ type ConversacionLista = {
   ultima_actividad: string;
   mensajes_no_leidos: number;
   estado: EstadoConversacion;
+  asignadoA: string | null;
   contactos: {
     telefono: string;
     nombre: string | null;
@@ -90,6 +91,72 @@ async function obtenerContactosMapeados(conversaciones: ConversacionBase[]) {
       },
     ])
   );
+}
+
+async function obtenerAsignacionesMapeadas(conversaciones: ConversacionBase[]) {
+  const conversacionIds = conversaciones.map((conversacion) => conversacion.id);
+
+  if (conversacionIds.length === 0) {
+    return new Map<string, string>();
+  }
+
+  const { data: asignaciones, error: errorAsignaciones } = await supabaseAdmin
+    .from("conversaciones_asignadas")
+    .select("conversacion_id, usuario_id")
+    .in("conversacion_id", conversacionIds);
+
+  if (errorAsignaciones) {
+    console.error("Error cargando asignaciones de conversaciones:", errorAsignaciones);
+    return new Map<string, string>();
+  }
+
+  const usuarioIds = Array.from(
+    new Set(
+      (asignaciones ?? [])
+        .map((asignacion) => asignacion.usuario_id)
+        .filter(Boolean)
+    )
+  );
+
+  if (usuarioIds.length === 0) {
+    return new Map<string, string>();
+  }
+
+  const { data: perfiles, error: errorPerfiles } = await supabaseAdmin
+    .from("perfiles")
+    .select("id, nombre, email")
+    .in("id", usuarioIds);
+
+  if (errorPerfiles) {
+    console.error("Error cargando perfiles asignados:", errorPerfiles);
+    return new Map<string, string>();
+  }
+
+  const mapaPerfiles = new Map(
+    (perfiles ?? []).map((perfil) => [
+      perfil.id,
+      perfil.nombre?.trim() || perfil.email || "Usuario",
+    ])
+  );
+
+  const mapaAsignaciones = new Map<string, string>();
+
+  for (const asignacion of asignaciones ?? []) {
+    if (!asignacion.conversacion_id || !asignacion.usuario_id) {
+      continue;
+    }
+
+    if (mapaAsignaciones.has(asignacion.conversacion_id)) {
+      continue;
+    }
+
+    const nombreAsignado =
+      mapaPerfiles.get(asignacion.usuario_id) ?? "Usuario";
+
+    mapaAsignaciones.set(asignacion.conversacion_id, nombreAsignado);
+  }
+
+  return mapaAsignaciones;
 }
 
 function normalizarTexto(valor: string) {
@@ -163,6 +230,7 @@ async function obtenerConversaciones(
   }
 
   const mapaContactos = await obtenerContactosMapeados(conversaciones);
+  const mapaAsignaciones = await obtenerAsignacionesMapeadas(conversaciones);
 
   const conversacionesFiltradas = conversaciones.filter((conversacion) =>
     cumpleBusqueda(conversacion, mapaContactos, busqueda)
@@ -173,6 +241,7 @@ async function obtenerConversaciones(
     ultima_actividad: conversacion.ultima_actividad,
     mensajes_no_leidos: conversacion.mensajes_no_leidos,
     estado: conversacion.estado,
+    asignadoA: mapaAsignaciones.get(conversacion.id) ?? null,
     contactos: conversacion.contacto_id
       ? mapaContactos.get(conversacion.contacto_id) ?? null
       : null,
@@ -475,6 +544,13 @@ export default async function Home({
 
                       <p className="mt-1 text-xs text-neutral-500">
                         {conversacion.contactos?.telefono || "Sin teléfono"}
+                      </p>
+
+                      <p className="mt-1 text-[11px] text-neutral-500">
+                        Asignado a:{" "}
+                        <span className="font-medium text-neutral-700">
+                          {conversacion.asignadoA || "Sin asignar"}
+                        </span>
                       </p>
                     </div>
 
