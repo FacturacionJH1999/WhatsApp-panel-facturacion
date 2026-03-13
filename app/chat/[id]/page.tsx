@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { EnviarMensaje } from "./EnviarMensaje";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -444,21 +445,7 @@ export default async function ChatPage({
         </section>
 
         <footer className="border-t border-neutral-200 bg-white p-3">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Escribe un mensaje..."
-              className="flex-1 rounded-xl border border-neutral-200 px-4 py-3 text-sm outline-none"
-              disabled
-            />
-            <button
-              type="button"
-              className="rounded-xl bg-neutral-900 px-4 py-3 text-sm font-medium text-white opacity-60"
-              disabled
-            >
-              Enviar
-            </button>
-          </div>
+          <EnviarMensaje telefono={conversacion.contactos?.telefono || ""} />
         </footer>
       </div>
     </main>
