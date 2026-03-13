@@ -7,6 +7,7 @@ export const revalidate = 0;
 type ConversacionLista = {
   id: string;
   ultima_actividad: string;
+  mensajes_no_leidos: number;
   contactos: {
     telefono: string;
     nombre: string | null;
@@ -16,7 +17,7 @@ type ConversacionLista = {
 async function obtenerConversaciones(): Promise<ConversacionLista[]> {
   const { data: conversaciones, error: errorConversaciones } = await supabaseAdmin
     .from("conversaciones")
-    .select("id, contacto_id, ultima_actividad")
+    .select("id, contacto_id, ultima_actividad, mensajes_no_leidos")
     .order("ultima_actividad", { ascending: false });
 
   if (errorConversaciones) {
@@ -42,6 +43,7 @@ async function obtenerConversaciones(): Promise<ConversacionLista[]> {
     return conversaciones.map((conversacion) => ({
       id: conversacion.id,
       ultima_actividad: conversacion.ultima_actividad,
+      mensajes_no_leidos: conversacion.mensajes_no_leidos ?? 0,
       contactos: null,
     }));
   }
@@ -59,6 +61,7 @@ async function obtenerConversaciones(): Promise<ConversacionLista[]> {
   return conversaciones.map((conversacion) => ({
     id: conversacion.id,
     ultima_actividad: conversacion.ultima_actividad,
+    mensajes_no_leidos: conversacion.mensajes_no_leidos ?? 0,
     contactos: mapaContactos.get(conversacion.contacto_id) ?? null,
   }));
 }
@@ -117,9 +120,17 @@ export default async function Home() {
                       </p>
                     </div>
 
-                    <p className="text-[11px] text-neutral-400">
-                      {formatearFecha(conversacion.ultima_actividad)}
-                    </p>
+                    <div className="flex flex-col items-end gap-1">
+                      <p className="text-[11px] text-neutral-400">
+                        {formatearFecha(conversacion.ultima_actividad)}
+                      </p>
+
+                      {conversacion.mensajes_no_leidos > 0 ? (
+                        <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">
+                          {conversacion.mensajes_no_leidos}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </Link>
               ))

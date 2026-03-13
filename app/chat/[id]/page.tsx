@@ -50,6 +50,17 @@ async function obtenerConversacion(id: string): Promise<ConversacionDetalle | nu
     return null;
   }
 
+  const { error: errorResetNoLeidos } = await supabaseAdmin
+    .from("conversaciones")
+    .update({
+      mensajes_no_leidos: 0,
+    })
+    .eq("id", data.id);
+
+  if (errorResetNoLeidos) {
+    console.error("Error reseteando no leídos:", errorResetNoLeidos);
+  }
+
   const { data: contacto, error: errorContacto } = await supabaseAdmin
     .from("contactos")
     .select("telefono, nombre")

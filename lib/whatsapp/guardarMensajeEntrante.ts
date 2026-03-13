@@ -114,10 +114,23 @@ export async function guardarMensajeEntrante({
     throw errorMensaje;
   }
 
+  const { data: conversacionActual, error: errorConversacionActual } = await supabaseAdmin
+    .from("conversaciones")
+    .select("mensajes_no_leidos")
+    .eq("id", conversacionId)
+    .single();
+
+  if (errorConversacionActual) {
+    throw errorConversacionActual;
+  }
+
+  const cantidadNoLeidos = (conversacionActual?.mensajes_no_leidos ?? 0) + 1;
+
   const { error: errorActualizarConversacion } = await supabaseAdmin
     .from("conversaciones")
     .update({
       ultima_actividad: fechaFinal,
+      mensajes_no_leidos: cantidadNoLeidos,
     })
     .eq("id", conversacionId);
 
