@@ -8,6 +8,14 @@ export const revalidate = 0;
 type RolUsuario = "admin" | "empleado";
 type EstadoConversacion = "nueva" | "en_proceso" | "cerrada";
 
+type ConversacionBase = {
+  id: string;
+  contacto_id: string | null;
+  ultima_actividad: string;
+  mensajes_no_leidos: number;
+  estado: EstadoConversacion;
+};
+
 type ConversacionLista = {
   id: string;
   ultima_actividad: string;
@@ -19,31 +27,107 @@ type ConversacionLista = {
   } | null;
 };
 
-async function obtenerConversaciones(
+type ConteosEstado = {
+  todas: number;
+  nueva: number;
+  en_proceso: number;
+  cerrada: number;
+};
+
+type ContactoMapa = {
+  telefono: string;
+  nombre: string | null;
+};
+
+async function obtenerIdsPermitidos(
   usuarioId: string,
-  rol: RolUsuario,
-  estadoFiltro?: string
+  rol: RolUsuario
+): Promise<string[] | null> {
+  if (rol === "admin") {
+    return null;
+  }
+
+  const { data: asignaciones, error } = await supabaseAdmin
+    .from("conversaciones_asignadas")
+    .select("conversacion_id")
+    .eq("usuario_id", usuarioId);
+
+  if (error) {
+    console.error("Error cargando asignaciones:", error);
+    return [];
+  }
+
+  return (asignaciones ?? [])
+    .map((item) => item.conversacion_id)
+    .filter(Boolean);
+}
+
+async function obtenerContactosMapeados(conversaciones: ConversacionBase[]) {
+  const contactoIds = conversaciones
+    .map((conversacion) => conversacion.contacto_id)
+    .filter(Boolean);
+
+  if (contactoIds.length === 0) {
+    return new Map<string, ContactoMapa>();
+  }
+
+  const { data: contactos, error } = await supabaseAdmin
+    .from("contactos")
+    .select("id, telefono, nombre")
+    .in("id", contactoIds);
+
+  if (error) {
+    console.error("Error cargando contactos:", error);
+    return new Map<string, ContactoMapa>();
+  }
+
+  return new Map<string, ContactoMapa>(
+    (contactos ?? []).map((contacto) => [
+      contacto.id,
+      {
+        telefono: contacto.telefono,
+        nombre: contacto.nombre,
+      },
+    ])
+  );
+}
+
+function normalizarTexto(valor: string) {
+  return valor.trim().toLowerCase();
+}
+
+function cumpleBusqueda(
+  conversacion: ConversacionBase,
+  mapaContactos: Map<string, ContactoMapa>,
+  busqueda?: string
+) {
+  if (!busqueda) {
+    return true;
+  }
+
+  const termino = normalizarTexto(busqueda);
+
+  if (!termino) {
+    return true;
+  }
+
+  const contacto = conversacion.contacto_id
+    ? mapaContactos.get(conversacion.contacto_id) ?? null
+    : null;
+
+  const nombre = normalizarTexto(contacto?.nombre ?? "");
+  const telefono = normalizarTexto(contacto?.telefono ?? "");
+
+  return nombre.includes(termino) || telefono.includes(termino);
+}
+
+async function obtenerConversaciones(
+  conversacionesIdsPermitidas: string[] | null,
+  estadoFiltro?: string,
+  busqueda?: string
 ): Promise<ConversacionLista[]> {
-  let conversacionesIdsPermitidas: string[] | null = null;
-
-  if (rol !== "admin") {
-    const { data: asignaciones, error: errorAsignaciones } = await supabaseAdmin
-      .from("conversaciones_asignadas")
-      .select("conversacion_id")
-      .eq("usuario_id", usuarioId);
-
-    if (errorAsignaciones) {
-      console.error("Error cargando asignaciones:", errorAsignaciones);
-      return [];
-    }
-
-    conversacionesIdsPermitidas = (asignaciones ?? [])
-      .map((item) => item.conversacion_id)
-      .filter(Boolean);
-
-    if (conversacionesIdsPermitidas.length === 0) {
-      return [];
-    }
+  if (conversacionesIdsPermitidas && conversacionesIdsPermitidas.length === 0) {
+    return [];
   }
 
   let consulta = supabaseAdmin
@@ -59,64 +143,109 @@ async function obtenerConversaciones(
     consulta = consulta.eq("estado", estadoFiltro);
   }
 
-  const { data: conversaciones, error: errorConversaciones } = await consulta;
+  const { data, error } = await consulta;
 
-  if (errorConversaciones) {
-    console.error("Error cargando conversaciones:", errorConversaciones);
+  if (error) {
+    console.error("Error cargando conversaciones:", error);
     return [];
   }
 
-  if (!conversaciones || conversaciones.length === 0) {
-    return [];
-  }
-
-  const contactoIds = conversaciones
-    .map((conversacion) => conversacion.contacto_id)
-    .filter(Boolean);
-
-  if (contactoIds.length === 0) {
-    return conversaciones.map((conversacion) => ({
-      id: conversacion.id,
-      ultima_actividad: conversacion.ultima_actividad,
-      mensajes_no_leidos: conversacion.mensajes_no_leidos ?? 0,
-      estado: (conversacion.estado as EstadoConversacion) ?? "nueva",
-      contactos: null,
-    }));
-  }
-
-  const { data: contactos, error: errorContactos } = await supabaseAdmin
-    .from("contactos")
-    .select("id, telefono, nombre")
-    .in("id", contactoIds);
-
-  if (errorContactos) {
-    console.error("Error cargando contactos:", errorContactos);
-    return conversaciones.map((conversacion) => ({
-      id: conversacion.id,
-      ultima_actividad: conversacion.ultima_actividad,
-      mensajes_no_leidos: conversacion.mensajes_no_leidos ?? 0,
-      estado: (conversacion.estado as EstadoConversacion) ?? "nueva",
-      contactos: null,
-    }));
-  }
-
-  const mapaContactos = new Map(
-    (contactos ?? []).map((contacto) => [
-      contacto.id,
-      {
-        telefono: contacto.telefono,
-        nombre: contacto.nombre,
-      },
-    ])
-  );
-
-  return conversaciones.map((conversacion) => ({
+  const conversaciones: ConversacionBase[] = (data ?? []).map((conversacion) => ({
     id: conversacion.id,
+    contacto_id: conversacion.contacto_id,
     ultima_actividad: conversacion.ultima_actividad,
     mensajes_no_leidos: conversacion.mensajes_no_leidos ?? 0,
     estado: (conversacion.estado as EstadoConversacion) ?? "nueva",
-    contactos: mapaContactos.get(conversacion.contacto_id) ?? null,
   }));
+
+  if (conversaciones.length === 0) {
+    return [];
+  }
+
+  const mapaContactos = await obtenerContactosMapeados(conversaciones);
+
+  const conversacionesFiltradas = conversaciones.filter((conversacion) =>
+    cumpleBusqueda(conversacion, mapaContactos, busqueda)
+  );
+
+  return conversacionesFiltradas.map((conversacion) => ({
+    id: conversacion.id,
+    ultima_actividad: conversacion.ultima_actividad,
+    mensajes_no_leidos: conversacion.mensajes_no_leidos,
+    estado: conversacion.estado,
+    contactos: conversacion.contacto_id
+      ? mapaContactos.get(conversacion.contacto_id) ?? null
+      : null,
+  }));
+}
+
+async function obtenerConteosEstados(
+  conversacionesIdsPermitidas: string[] | null,
+  busqueda?: string
+): Promise<ConteosEstado> {
+  if (conversacionesIdsPermitidas && conversacionesIdsPermitidas.length === 0) {
+    return {
+      todas: 0,
+      nueva: 0,
+      en_proceso: 0,
+      cerrada: 0,
+    };
+  }
+
+  let consulta = supabaseAdmin
+    .from("conversaciones")
+    .select("id, contacto_id, estado");
+
+  if (conversacionesIdsPermitidas) {
+    consulta = consulta.in("id", conversacionesIdsPermitidas);
+  }
+
+  const { data, error } = await consulta;
+
+  if (error) {
+    console.error("Error cargando conteos de estados:", error);
+    return {
+      todas: 0,
+      nueva: 0,
+      en_proceso: 0,
+      cerrada: 0,
+    };
+  }
+
+  const conversaciones = (data ?? []).map((conversacion) => ({
+    id: conversacion.id,
+    contacto_id: conversacion.contacto_id,
+    estado: (conversacion.estado as EstadoConversacion) ?? "nueva",
+    ultima_actividad: "",
+    mensajes_no_leidos: 0,
+  }));
+
+  const mapaContactos = await obtenerContactosMapeados(conversaciones);
+
+  const conversacionesFiltradas = conversaciones.filter((conversacion) =>
+    cumpleBusqueda(conversacion, mapaContactos, busqueda)
+  );
+
+  const conteos: ConteosEstado = {
+    todas: 0,
+    nueva: 0,
+    en_proceso: 0,
+    cerrada: 0,
+  };
+
+  for (const conversacion of conversacionesFiltradas) {
+    conteos.todas += 1;
+
+    if (conversacion.estado === "nueva") {
+      conteos.nueva += 1;
+    } else if (conversacion.estado === "en_proceso") {
+      conteos.en_proceso += 1;
+    } else if (conversacion.estado === "cerrada") {
+      conteos.cerrada += 1;
+    }
+  }
+
+  return conteos;
 }
 
 function formatearFecha(fechaIso: string) {
@@ -160,21 +289,49 @@ function obtenerClasesFiltro(activo: boolean) {
     : "rounded-lg border border-neutral-300 px-2 py-1 text-neutral-700 hover:bg-neutral-100";
 }
 
+function construirHrefFiltro(estado: string, busqueda: string) {
+  const params = new URLSearchParams();
+
+  if (estado !== "todas") {
+    params.set("estado", estado);
+  }
+
+  if (busqueda.trim()) {
+    params.set("q", busqueda.trim());
+  }
+
+  const query = params.toString();
+  return query ? `/?${query}` : "/";
+}
+
+function construirHrefLimpiar(estado: string) {
+  if (estado && estado !== "todas") {
+    return `/?estado=${encodeURIComponent(estado)}`;
+  }
+
+  return "/";
+}
+
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ estado?: string }>;
+  searchParams: Promise<{ estado?: string; q?: string }>;
 }) {
   const { perfil } = await requireUser();
-  const { estado } = await searchParams;
+  const { estado, q } = await searchParams;
 
   const estadoFiltro = estado ?? "todas";
+  const busqueda = q ?? "";
 
-  const conversaciones = await obtenerConversaciones(
+  const conversacionesIdsPermitidas = await obtenerIdsPermitidos(
     perfil.id,
-    perfil.rol,
-    estadoFiltro
+    perfil.rol
   );
+
+  const [conversaciones, conteos] = await Promise.all([
+    obtenerConversaciones(conversacionesIdsPermitidas, estadoFiltro, busqueda),
+    obtenerConteosEstados(conversacionesIdsPermitidas, busqueda),
+  ]);
 
   return (
     <main className="min-h-screen bg-neutral-100">
@@ -211,33 +368,69 @@ export default async function Home({
             </div>
           </div>
 
+          <div className="px-3 pt-3">
+            <form method="GET" className="space-y-2">
+              {estadoFiltro !== "todas" ? (
+                <input type="hidden" name="estado" value={estadoFiltro} />
+              ) : null}
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  name="q"
+                  defaultValue={busqueda}
+                  placeholder="Buscar cliente o teléfono"
+                  className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-black"
+                />
+
+                <button
+                  type="submit"
+                  className="rounded-xl border border-black bg-black px-3 py-2 text-sm font-medium text-white hover:opacity-90"
+                >
+                  Buscar
+                </button>
+              </div>
+
+              {busqueda.trim() ? (
+                <div className="flex justify-end">
+                  <Link
+                    href={construirHrefLimpiar(estadoFiltro)}
+                    className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
+                  >
+                    Limpiar
+                  </Link>
+                </div>
+              ) : null}
+            </form>
+          </div>
+
           <div className="flex flex-wrap gap-2 px-3 pb-3 pt-3 text-xs font-medium">
             <Link
-              href="/"
+              href={construirHrefFiltro("todas", busqueda)}
               className={obtenerClasesFiltro(estadoFiltro === "todas")}
             >
-              Todas
+              Todas ({conteos.todas})
             </Link>
 
             <Link
-              href="/?estado=nueva"
+              href={construirHrefFiltro("nueva", busqueda)}
               className={obtenerClasesFiltro(estadoFiltro === "nueva")}
             >
-              Nuevas
+              Nuevas ({conteos.nueva})
             </Link>
 
             <Link
-              href="/?estado=en_proceso"
+              href={construirHrefFiltro("en_proceso", busqueda)}
               className={obtenerClasesFiltro(estadoFiltro === "en_proceso")}
             >
-              En proceso
+              En proceso ({conteos.en_proceso})
             </Link>
 
             <Link
-              href="/?estado=cerrada"
+              href={construirHrefFiltro("cerrada", busqueda)}
               className={obtenerClasesFiltro(estadoFiltro === "cerrada")}
             >
-              Cerradas
+              Cerradas ({conteos.cerrada})
             </Link>
           </div>
 
@@ -248,9 +441,11 @@ export default async function Home({
                   No hay conversaciones disponibles
                 </p>
                 <p className="mt-1 text-sm text-neutral-500">
-                  {perfil.rol === "admin"
-                    ? "Cuando entren mensajes por WhatsApp aparecerán aquí."
-                    : "Todavía no te han asignado conversaciones."}
+                  {busqueda.trim()
+                    ? "No encontramos resultados para esa búsqueda."
+                    : perfil.rol === "admin"
+                      ? "Cuando entren mensajes por WhatsApp aparecerán aquí."
+                      : "Todavía no te han asignado conversaciones."}
                 </p>
               </div>
             ) : (
