@@ -5,6 +5,10 @@ type GuardarMensajeSalienteParams = {
   texto: string;
   waMessageId?: string | null;
   fechaMensaje?: string | null;
+  tipo?: string;
+  mimeType?: string | null;
+  nombreArchivo?: string | null;
+  mediaId?: string | null;
 };
 
 export async function guardarMensajeSaliente({
@@ -12,6 +16,10 @@ export async function guardarMensajeSaliente({
   texto,
   waMessageId,
   fechaMensaje,
+  tipo = "text",
+  mimeType = null,
+  nombreArchivo = null,
+  mediaId = null,
 }: GuardarMensajeSalienteParams) {
   let contactoId = "";
   let conversacionId = "";
@@ -24,9 +32,7 @@ export async function guardarMensajeSaliente({
     .eq("telefono", telefono)
     .maybeSingle();
 
-  if (errorContactoBusqueda) {
-    throw errorContactoBusqueda;
-  }
+  if (errorContactoBusqueda) throw errorContactoBusqueda;
 
   if (contactoExistente?.id) {
     contactoId = contactoExistente.id;
@@ -40,13 +46,8 @@ export async function guardarMensajeSaliente({
       .select("id")
       .single();
 
-    if (errorNuevoContacto) {
-      throw errorNuevoContacto;
-    }
-
-    if (!nuevoContacto?.id) {
-      throw new Error("No se pudo crear el contacto");
-    }
+    if (errorNuevoContacto) throw errorNuevoContacto;
+    if (!nuevoContacto?.id) throw new Error("No se pudo crear el contacto");
 
     contactoId = nuevoContacto.id;
   }
@@ -57,9 +58,7 @@ export async function guardarMensajeSaliente({
     .eq("contacto_id", contactoId)
     .maybeSingle();
 
-  if (errorConversacionBusqueda) {
-    throw errorConversacionBusqueda;
-  }
+  if (errorConversacionBusqueda) throw errorConversacionBusqueda;
 
   if (conversacionExistente?.id) {
     conversacionId = conversacionExistente.id;
@@ -72,13 +71,8 @@ export async function guardarMensajeSaliente({
       .select("id")
       .single();
 
-    if (errorNuevaConversacion) {
-      throw errorNuevaConversacion;
-    }
-
-    if (!nuevaConversacion?.id) {
-      throw new Error("No se pudo crear la conversación");
-    }
+    if (errorNuevaConversacion) throw errorNuevaConversacion;
+    if (!nuevaConversacion?.id) throw new Error("No se pudo crear la conversación");
 
     conversacionId = nuevaConversacion.id;
   }
@@ -90,30 +84,23 @@ export async function guardarMensajeSaliente({
       .eq("wa_message_id", waMessageId)
       .maybeSingle();
 
-    if (errorMensajeExistente) {
-      throw errorMensajeExistente;
-    }
-
-    if (mensajeExistente?.id) {
-      return;
-    }
+    if (errorMensajeExistente) throw errorMensajeExistente;
+    if (mensajeExistente?.id) return;
   }
 
   const { error: errorMensaje } = await supabaseAdmin.from("mensajes").insert({
     conversacion_id: conversacionId,
     wa_message_id: waMessageId ?? null,
     direccion: "saliente",
-    tipo: "text",
+    tipo,
     texto,
-    nombre_archivo: null,
-    mime_type: null,
-    media_id: null,
+    nombre_archivo: nombreArchivo,
+    mime_type: mimeType,
+    media_id: mediaId,
     fecha_mensaje: fechaFinal,
   });
 
-  if (errorMensaje) {
-    throw errorMensaje;
-  }
+  if (errorMensaje) throw errorMensaje;
 
   const { error: errorActualizarConversacion } = await supabaseAdmin
     .from("conversaciones")
@@ -122,7 +109,5 @@ export async function guardarMensajeSaliente({
     })
     .eq("id", conversacionId);
 
-  if (errorActualizarConversacion) {
-    throw errorActualizarConversacion;
-  }
+  if (errorActualizarConversacion) throw errorActualizarConversacion;
 }
