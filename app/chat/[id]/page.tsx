@@ -13,6 +13,7 @@ type Mensaje = {
   nombre_archivo: string | null;
   mime_type: string | null;
   url_archivo: string | null;
+  media_id: string | null;
   fecha_mensaje: string | null;
 };
 
@@ -74,6 +75,7 @@ async function obtenerMensajes(conversacionId: string): Promise<Mensaje[]> {
       nombre_archivo,
       mime_type,
       url_archivo,
+      media_id,
       fecha_mensaje
     `)
     .eq("conversacion_id", conversacionId)
@@ -113,9 +115,74 @@ function obtenerEtiquetaTipoMensaje(mensaje: Mensaje) {
   }
 }
 
+function obtenerUrlMedia(mensaje: Mensaje) {
+  if (!mensaje.media_id) return null;
+  return `/api/whatsapp/media/${mensaje.media_id}`;
+}
+
+function esPdf(mensaje: Mensaje) {
+  return (
+    mensaje.tipo === "document" &&
+    (mensaje.mime_type === "application/pdf" ||
+      mensaje.nombre_archivo?.toLowerCase().endsWith(".pdf"))
+  );
+}
+
 function obtenerContenidoMensaje(mensaje: Mensaje) {
+  const mediaUrl = obtenerUrlMedia(mensaje);
+
   if (mensaje.tipo === "text" && mensaje.texto) {
     return <p className="mt-1 whitespace-pre-wrap text-sm">{mensaje.texto}</p>;
+  }
+
+  if (mensaje.tipo === "image" && mediaUrl) {
+    return (
+      <div className="mt-2">
+        <img
+          src={mediaUrl}
+          alt="Imagen recibida"
+          className="max-h-[420px] w-full rounded-xl border border-black/10 object-contain bg-black/5"
+        />
+      </div>
+    );
+  }
+
+  if (mensaje.tipo === "video" && mediaUrl) {
+    return (
+      <div className="mt-2">
+        <video
+          controls
+          preload="metadata"
+          className="max-h-[420px] w-full rounded-xl border border-black/10 bg-black"
+        >
+          <source src={mediaUrl} type={mensaje.mime_type ?? "video/mp4"} />
+          Tu navegador no soporta video.
+        </video>
+      </div>
+    );
+  }
+
+  if (esPdf(mensaje) && mediaUrl) {
+    return (
+      <div className="mt-2">
+        <div className="overflow-hidden rounded-xl border border-black/10 bg-white">
+          <iframe
+            src={mediaUrl}
+            title={mensaje.nombre_archivo || "PDF recibido"}
+            className="h-[520px] w-full"
+          />
+        </div>
+
+        <a
+          href={mediaUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2 inline-block text-sm underline"
+        >
+          Abrir PDF en otra pestaña
+        </a>
+      </div>
+    );
   }
 
   if (mensaje.tipo === "document") {
@@ -124,33 +191,32 @@ function obtenerContenidoMensaje(mensaje: Mensaje) {
         <p className="font-medium">
           📄 {mensaje.nombre_archivo || "Documento recibido"}
         </p>
+
         {mensaje.mime_type ? (
           <p className="mt-1 text-xs opacity-70">{mensaje.mime_type}</p>
+        ) : null}
+
+        {mediaUrl ? (
+          <a
+            href={mediaUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 inline-block underline"
+          >
+            Abrir documento
+          </a>
         ) : null}
       </div>
     );
   }
 
-  if (mensaje.tipo === "image") {
+  if (mensaje.tipo === "audio" && mediaUrl) {
     return (
-      <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
-        📷 Imagen recibida
-      </div>
-    );
-  }
-
-  if (mensaje.tipo === "video") {
-    return (
-      <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
-        🎥 Video recibido
-      </div>
-    );
-  }
-
-  if (mensaje.tipo === "audio") {
-    return (
-      <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
-        🎙️ Audio recibido
+      <div className="mt-2">
+        <audio controls className="w-full">
+          <source src={mediaUrl} type={mensaje.mime_type ?? "audio/mpeg"} />
+          Tu navegador no soporta audio.
+        </audio>
       </div>
     );
   }
