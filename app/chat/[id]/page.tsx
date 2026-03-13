@@ -4,6 +4,8 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { EnviarMensaje } from "./EnviarMensaje";
 import { AutoRefreshChat } from "./AutoRefreshChat";
 import { AutoScrollChat } from "./AutoScrollChat";
+import { requireUser } from "@/lib/auth/requireUser";
+import { puedeVerConversacion } from "@/lib/auth/puedeVerConversacion";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -34,7 +36,9 @@ type ConversacionDetalle = {
   } | null;
 };
 
-async function obtenerConversacion(id: string): Promise<ConversacionDetalle | null> {
+async function obtenerConversacion(
+  id: string
+): Promise<ConversacionDetalle | null> {
   const { data, error } = await supabaseAdmin
     .from("conversaciones")
     .select("id, contacto_id, ultima_actividad")
@@ -282,7 +286,10 @@ function obtenerContenidoMensaje(mensaje: Mensaje) {
 
   if (esPdf(mensaje)) {
     if (!mediaUrl) {
-      return renderEstadoMedia(mensaje, `📄 ${mensaje.nombre_archivo || "PDF recibido"}`);
+      return renderEstadoMedia(
+        mensaje,
+        `📄 ${mensaje.nombre_archivo || "PDF recibido"}`
+      );
     }
 
     return (
@@ -309,7 +316,10 @@ function obtenerContenidoMensaje(mensaje: Mensaje) {
 
   if (mensaje.tipo === "document") {
     if (!mediaUrl) {
-      return renderEstadoMedia(mensaje, `📄 ${mensaje.nombre_archivo || "Documento recibido"}`);
+      return renderEstadoMedia(
+        mensaje,
+        `📄 ${mensaje.nombre_archivo || "Documento recibido"}`
+      );
     }
 
     return (
@@ -370,7 +380,14 @@ export default async function ChatPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const { perfil } = await requireUser();
   const { id } = await params;
+
+  const tieneAcceso = await puedeVerConversacion(perfil, id);
+
+  if (!tieneAcceso) {
+    notFound();
+  }
 
   const conversacion = await obtenerConversacion(id);
 
@@ -379,31 +396,43 @@ export default async function ChatPage({
   }
 
   const mensajes = await obtenerMensajes(id);
+  const esAdmin = perfil.rol === "admin";
 
   return (
     <main className="h-screen overflow-hidden bg-neutral-100">
-      <AutoRefreshChat intervaloMs={3000} />
+      { <AutoRefreshChat intervaloMs={3000} />}
       <AutoScrollChat />
 
       <div className="mx-auto flex h-screen max-w-5xl flex-col bg-white">
         <header className="shrink-0 border-b border-neutral-200 px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              prefetch={false}
-              className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50"
-            >
-              Volver
-            </Link>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Link
+                href="/"
+                prefetch={false}
+                className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50"
+              >
+                Volver
+              </Link>
 
-            <div>
-              <h1 className="text-sm font-semibold text-neutral-900">
-                {conversacion.contactos?.nombre?.trim() ||
-                  conversacion.contactos?.telefono ||
-                  "Sin nombre"}
-              </h1>
-              <p className="text-xs text-neutral-500">
-                {conversacion.contactos?.telefono || "Sin teléfono"}
+              <div>
+                <h1 className="text-sm font-semibold text-neutral-900">
+                  {conversacion.contactos?.nombre?.trim() ||
+                    conversacion.contactos?.telefono ||
+                    "Sin nombre"}
+                </h1>
+                <p className="text-xs text-neutral-500">
+                  {conversacion.contactos?.telefono || "Sin teléfono"}
+                </p>
+              </div>
+            </div>
+
+            <div className="text-right">
+              <p className="text-xs font-medium text-neutral-700">
+                {perfil.nombre || perfil.email || "Usuario"}
+              </p>
+              <p className="text-[11px] uppercase tracking-wide text-neutral-500">
+                {perfil.rol}
               </p>
             </div>
           </div>
@@ -452,7 +481,10 @@ export default async function ChatPage({
         </section>
 
         <footer className="shrink-0 border-t border-neutral-200 bg-white p-3">
-          <EnviarMensaje telefono={conversacion.contactos?.telefono || ""} />
+          <EnviarMensaje
+            telefono={conversacion.contactos?.telefono || ""}
+            puedeEnviar={esAdmin}
+          />
         </footer>
       </div>
     </main>

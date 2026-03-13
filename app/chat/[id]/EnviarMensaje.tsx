@@ -2,13 +2,21 @@
 
 import { useRef, useState } from "react";
 
-export function EnviarMensaje({ telefono }: { telefono: string }) {
+type EnviarMensajeProps = {
+  telefono: string;
+  puedeEnviar?: boolean;
+};
+
+export function EnviarMensaje({
+  telefono,
+  puedeEnviar = true,
+}: EnviarMensajeProps) {
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
   const inputArchivoRef = useRef<HTMLInputElement | null>(null);
 
   async function enviarTexto() {
-    if (!texto.trim() || !telefono || enviando) return;
+    if (!puedeEnviar || !texto.trim() || !telefono || enviando) return;
 
     setEnviando(true);
 
@@ -25,9 +33,20 @@ export function EnviarMensaje({ telefono }: { telefono: string }) {
         }),
       });
 
+      const data = await response.json().catch(() => null);
+
       if (!response.ok) {
-        const data = await response.json().catch(() => null);
-        console.error("Error enviando mensaje:", data);
+        if (response.status === 401) {
+          console.error("Sesión no válida:", data);
+        } else if (response.status === 403) {
+          console.error("Usuario sin permisos para enviar mensajes:", data);
+        } else {
+          console.error("Error enviando mensaje:", {
+            status: response.status,
+            data,
+          });
+        }
+
         return;
       }
 
@@ -42,7 +61,7 @@ export function EnviarMensaje({ telefono }: { telefono: string }) {
 
   async function manejarArchivo(e: React.ChangeEvent<HTMLInputElement>) {
     const archivo = e.target.files?.[0];
-    if (!archivo || !telefono || enviando) return;
+    if (!puedeEnviar || !archivo || !telefono || enviando) return;
 
     setEnviando(true);
 
@@ -55,10 +74,20 @@ export function EnviarMensaje({ telefono }: { telefono: string }) {
         body: formData,
       });
 
-      const subidaData = await subida.json();
+      const subidaData = await subida.json().catch(() => null);
 
       if (!subida.ok || !subidaData?.id) {
-        console.error("Error subiendo media:", subidaData);
+        if (subida.status === 401) {
+          console.error("Sesión no válida:", subidaData);
+        } else if (subida.status === 403) {
+          console.error("Usuario sin permisos para subir archivos:", subidaData);
+        } else {
+          console.error("Error subiendo media:", {
+            status: subida.status,
+            data: subidaData,
+          });
+        }
+
         return;
       }
 
@@ -81,10 +110,20 @@ export function EnviarMensaje({ telefono }: { telefono: string }) {
         }),
       });
 
-      const envioData = await envio.json();
+      const envioData = await envio.json().catch(() => null);
 
       if (!envio.ok) {
-        console.error("Error enviando media:", envioData);
+        if (envio.status === 401) {
+          console.error("Sesión no válida:", envioData);
+        } else if (envio.status === 403) {
+          console.error("Usuario sin permisos para enviar archivos:", envioData);
+        } else {
+          console.error("Error enviando media:", {
+            status: envio.status,
+            data: envioData,
+          });
+        }
+
         return;
       }
 
@@ -93,10 +132,19 @@ export function EnviarMensaje({ telefono }: { telefono: string }) {
       console.error("Error enviando archivo:", error);
     } finally {
       setEnviando(false);
+
       if (inputArchivoRef.current) {
         inputArchivoRef.current.value = "";
       }
     }
+  }
+
+  if (!puedeEnviar) {
+    return (
+      <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-600">
+        Esta conversación está en modo solo lectura.
+      </div>
+    );
   }
 
   return (

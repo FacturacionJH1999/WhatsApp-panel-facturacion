@@ -19,6 +19,17 @@ type GuardarMensajeEntranteResultado = {
   conversacionId: string | null;
 };
 
+function normalizarTexto(texto: string | null | undefined) {
+  if (typeof texto !== "string") return null;
+  const limpio = texto.trim();
+  return limpio.length > 0 ? limpio : null;
+}
+
+function calcularEstadoMedia(tipo: string) {
+  const tiposConMedia = new Set(["image", "document", "video", "audio"]);
+  return tiposConMedia.has(tipo) ? "pendiente" : "no_aplica";
+}
+
 export async function guardarMensajeEntrante({
   telefono,
   nombre,
@@ -34,16 +45,36 @@ export async function guardarMensajeEntrante({
   let conversacionId = "";
 
   const fechaFinal = fechaMensaje ?? new Date().toISOString();
+  const textoNormalizado = normalizarTexto(texto);
+  const estadoMedia = calcularEstadoMedia(tipo);
 
-  // 1) ✅ Proteccion contra duplicados por wa_message_id
+  console.log("guardarMensajeEntrante() inicio:", {
+    telefono,
+    nombre,
+    waMessageId,
+    tipo,
+    textoOriginal: texto ?? null,
+    textoNormalizado,
+    nombreArchivo: nombreArchivo ?? null,
+    mimeType: mimeType ?? null,
+    mediaId: mediaId ?? null,
+    fechaFinal,
+    estadoMedia,
+  });
+
   if (waMessageId) {
-    const { data: mensajeExistente, error: errorMensajeExistente } = await supabaseAdmin
-      .from("mensajes")
-      .select("id, conversacion_id")
-      .eq("wa_message_id", waMessageId)
-      .maybeSingle();
+    const { data: mensajeExistente, error: errorMensajeExistente } =
+      await supabaseAdmin
+        .from("mensajes")
+        .select("id, conversacion_id")
+        .eq("wa_message_id", waMessageId)
+        .maybeSingle();
 
     if (errorMensajeExistente) {
+      console.error(
+        "Error buscando mensaje existente por wa_message_id:",
+        errorMensajeExistente
+      );
       throw errorMensajeExistente;
     }
 
@@ -61,21 +92,21 @@ export async function guardarMensajeEntrante({
     }
   }
 
-  // 2) Buscar o crear contacto
-  const { data: contactoExistente, error: errorContactoBusqueda } = await supabaseAdmin
-    .from("contactos")
-    .select("id, nombre")
-    .eq("telefono", telefono)
-    .maybeSingle();
+  const { data: contactoExistente, error: errorContactoBusqueda } =
+    await supabaseAdmin
+      .from("contactos")
+      .select("id, nombre")
+      .eq("telefono", telefono)
+      .maybeSingle();
 
   if (errorContactoBusqueda) {
+    console.error("Error buscando contacto:", errorContactoBusqueda);
     throw errorContactoBusqueda;
   }
 
   if (contactoExistente?.id) {
     contactoId = contactoExistente.id;
 
-    // ✅ Si llegó nombre y el contacto no lo tiene, lo actualizamos
     if (nombre && !contactoExistente.nombre) {
       const { error: errorActualizarNombre } = await supabaseAdmin
         .from("contactos")
@@ -83,6 +114,10 @@ export async function guardarMensajeEntrante({
         .eq("id", contactoId);
 
       if (errorActualizarNombre) {
+        console.error(
+          "Error actualizando nombre del contacto:",
+          errorActualizarNombre
+        );
         throw errorActualizarNombre;
       }
     }
@@ -97,6 +132,7 @@ export async function guardarMensajeEntrante({
       .single();
 
     if (errorNuevoContacto) {
+      console.error("Error creando contacto:", errorNuevoContacto);
       throw errorNuevoContacto;
     }
 
@@ -107,29 +143,32 @@ export async function guardarMensajeEntrante({
     contactoId = nuevoContacto.id;
   }
 
-  // 3) Buscar o crear conversacion
-  const { data: conversacionExistente, error: errorConversacionBusqueda } = await supabaseAdmin
-    .from("conversaciones")
-    .select("id")
-    .eq("contacto_id", contactoId)
-    .maybeSingle();
+  const { data: conversacionExistente, error: errorConversacionBusqueda } =
+    await supabaseAdmin
+      .from("conversaciones")
+      .select("id")
+      .eq("contacto_id", contactoId)
+      .maybeSingle();
 
   if (errorConversacionBusqueda) {
+    console.error("Error buscando conversación:", errorConversacionBusqueda);
     throw errorConversacionBusqueda;
   }
 
   if (conversacionExistente?.id) {
     conversacionId = conversacionExistente.id;
   } else {
-    const { data: nuevaConversacion, error: errorNuevaConversacion } = await supabaseAdmin
-      .from("conversaciones")
-      .insert({
-        contacto_id: contactoId,
-      })
-      .select("id")
-      .single();
+    const { data: nuevaConversacion, error: errorNuevaConversacion } =
+      await supabaseAdmin
+        .from("conversaciones")
+        .insert({
+          contacto_id: contactoId,
+        })
+        .select("id")
+        .single();
 
     if (errorNuevaConversacion) {
+      console.error("Error creando conversación:", errorNuevaConversacion);
       throw errorNuevaConversacion;
     }
 
@@ -140,27 +179,31 @@ export async function guardarMensajeEntrante({
     conversacionId = nuevaConversacion.id;
   }
 
-  // 4) Insertar mensaje
+  const payloadMensaje = {
+    conversacion_id: conversacionId,
+    wa_message_id: waMessageId ?? null,
+    direccion: "entrante" as const,
+    tipo,
+    texto: textoNormalizado,
+    nombre_archivo: nombreArchivo ?? null,
+    mime_type: mimeType ?? null,
+    media_id: mediaId ?? null,
+    fecha_mensaje: fechaFinal,
+    estado_media: estadoMedia,
+  };
+
+  console.log("Insertando mensaje en Supabase:", payloadMensaje);
+
   const { data: nuevoMensaje, error: errorMensaje } = await supabaseAdmin
     .from("mensajes")
-    .insert({
-      conversacion_id: conversacionId,
-      wa_message_id: waMessageId ?? null,
-      direccion: "entrante",
-      tipo,
-      texto: texto ?? null,
-      nombre_archivo: nombreArchivo ?? null,
-      mime_type: mimeType ?? null,
-      media_id: mediaId ?? null,
-      fecha_mensaje: fechaFinal,
-      estado_media: mediaId ? "pendiente" : null,
-    })
+    .insert(payloadMensaje)
     .select("id")
     .single();
 
   if (errorMensaje) {
-    // ✅ Si la DB ya bloqueó el duplicado por índice único, también lo tratamos aquí
     const mensajeError = String(errorMensaje.message ?? "").toLowerCase();
+
+    console.error("Error insertando mensaje:", errorMensaje, payloadMensaje);
 
     if (
       mensajeError.includes("duplicate key") ||
@@ -187,14 +230,18 @@ export async function guardarMensajeEntrante({
     throw errorMensaje;
   }
 
-  // 5) Incrementar no leidos solo si realmente fue mensaje nuevo
-  const { data: conversacionActual, error: errorConversacionActual } = await supabaseAdmin
-    .from("conversaciones")
-    .select("mensajes_no_leidos")
-    .eq("id", conversacionId)
-    .single();
+  const { data: conversacionActual, error: errorConversacionActual } =
+    await supabaseAdmin
+      .from("conversaciones")
+      .select("mensajes_no_leidos")
+      .eq("id", conversacionId)
+      .single();
 
   if (errorConversacionActual) {
+    console.error(
+      "Error leyendo conversación actual:",
+      errorConversacionActual
+    );
     throw errorConversacionActual;
   }
 
@@ -209,10 +256,13 @@ export async function guardarMensajeEntrante({
     .eq("id", conversacionId);
 
   if (errorActualizarConversacion) {
+    console.error(
+      "Error actualizando conversación:",
+      errorActualizarConversacion
+    );
     throw errorActualizarConversacion;
   }
 
-  // 6) Descargar media solo si el mensaje fue nuevo
   if (mediaId && nuevoMensaje?.id) {
     await descargarYGuardarMedia({
       mediaId,
@@ -220,6 +270,12 @@ export async function guardarMensajeEntrante({
       mensajeId: nuevoMensaje.id,
     });
   }
+
+  console.log("guardarMensajeEntrante() completado:", {
+    duplicado: false,
+    mensajeId: nuevoMensaje?.id ?? null,
+    conversacionId,
+  });
 
   return {
     duplicado: false,
