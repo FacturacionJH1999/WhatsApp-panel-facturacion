@@ -134,27 +134,35 @@ function construirUrlPublica(bucket: string, path: string) {
   return `${URL_SUPABASE}/storage/v1/object/public/${bucket}/${ruta}`;
 }
 
-function obtenerUrlMedia(mensaje: Mensaje) {
-  if (mensaje.storage_bucket && mensaje.storage_path) {
-    const url = construirUrlPublica(mensaje.storage_bucket, mensaje.storage_path);
+function agregarVersion(url: string, mensaje: Mensaje) {
+  const version = encodeURIComponent(mensaje.fecha_mensaje ?? mensaje.id);
 
-    if (url) {
-      const version = encodeURIComponent(mensaje.fecha_mensaje ?? mensaje.id);
-      return `${url}?v=${version}`;
+  if (url.includes("?")) {
+    return `${url}&v=${version}`;
+  }
+
+  return `${url}?v=${version}`;
+}
+
+function obtenerUrlMedia(mensaje: Mensaje) {
+  const urlArchivo = mensaje.url_archivo?.trim();
+
+  if (urlArchivo) {
+    return agregarVersion(urlArchivo, mensaje);
+  }
+
+  if (mensaje.storage_bucket && mensaje.storage_path) {
+    const urlConstruida = construirUrlPublica(
+      mensaje.storage_bucket,
+      mensaje.storage_path
+    );
+
+    if (urlConstruida) {
+      return agregarVersion(urlConstruida, mensaje);
     }
   }
 
-  const urlBase = mensaje.url_archivo?.trim();
-
-  if (!urlBase) return null;
-
-  const version = encodeURIComponent(mensaje.fecha_mensaje ?? mensaje.id);
-
-  if (urlBase.includes("?")) {
-    return `${urlBase}&v=${version}`;
-  }
-
-  return `${urlBase}?v=${version}`;
+  return null;
 }
 
 function esPdf(mensaje: Mensaje) {
@@ -166,17 +174,55 @@ function esPdf(mensaje: Mensaje) {
 }
 
 function renderEstadoMedia(mensaje: Mensaje, etiqueta: string) {
+  const urlDirecta = mensaje.url_archivo?.trim() || null;
+  const urlConstruida =
+    mensaje.storage_bucket && mensaje.storage_path
+      ? construirUrlPublica(mensaje.storage_bucket, mensaje.storage_path)
+      : null;
+
   return (
     <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
       <p>{etiqueta}</p>
       <p className="mt-1 text-xs opacity-70">
         Estado: {mensaje.estado_media || "sin estado"}
       </p>
-      {mensaje.storage_bucket ? (
-        <p className="mt-1 text-xs opacity-70">Bucket: {mensaje.storage_bucket}</p>
+
+      {urlDirecta ? (
+        <a
+          href={agregarVersion(urlDirecta, mensaje)}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2 block break-all text-xs underline"
+        >
+          Abrir url_archivo guardada
+        </a>
       ) : null}
+
+      {urlConstruida ? (
+        <a
+          href={agregarVersion(urlConstruida, mensaje)}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2 block break-all text-xs underline"
+        >
+          Abrir URL construida desde storage
+        </a>
+      ) : null}
+
+      {mensaje.storage_bucket ? (
+        <p className="mt-2 text-xs opacity-70">Bucket: {mensaje.storage_bucket}</p>
+      ) : null}
+
       {mensaje.storage_path ? (
-        <p className="mt-1 break-all text-xs opacity-70">{mensaje.storage_path}</p>
+        <p className="mt-1 break-all text-xs opacity-70">
+          Path: {mensaje.storage_path}
+        </p>
+      ) : null}
+
+      {mensaje.url_archivo ? (
+        <p className="mt-1 break-all text-xs opacity-70">
+          url_archivo: {mensaje.url_archivo}
+        </p>
       ) : null}
     </div>
   );
@@ -264,6 +310,10 @@ function obtenerContenidoMensaje(mensaje: Mensaje) {
   }
 
   if (mensaje.tipo === "document") {
+    if (!mediaUrl) {
+      return renderEstadoMedia(mensaje, `📄 ${mensaje.nombre_archivo || "Documento recibido"}`);
+    }
+
     return (
       <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
         <p className="font-medium">
@@ -274,22 +324,14 @@ function obtenerContenidoMensaje(mensaje: Mensaje) {
           <p className="mt-1 text-xs opacity-70">{mensaje.mime_type}</p>
         ) : null}
 
-        {!mediaUrl ? (
-          <p className="mt-1 text-xs opacity-70">
-            Estado: {mensaje.estado_media || "sin estado"}
-          </p>
-        ) : null}
-
-        {mediaUrl ? (
-          <a
-            href={mediaUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-2 inline-block underline"
-          >
-            Abrir documento
-          </a>
-        ) : null}
+        <a
+          href={mediaUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2 inline-block underline"
+        >
+          Abrir documento
+        </a>
       </div>
     );
   }
