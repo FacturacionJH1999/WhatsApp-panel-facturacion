@@ -5,6 +5,8 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const URL_SUPABASE = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
 type Mensaje = {
   id: string;
   direccion: "entrante" | "saliente";
@@ -15,6 +17,8 @@ type Mensaje = {
   url_archivo: string | null;
   media_id: string | null;
   estado_media: string | null;
+  storage_bucket: string | null;
+  storage_path: string | null;
   fecha_mensaje: string | null;
 };
 
@@ -78,6 +82,8 @@ async function obtenerMensajes(conversacionId: string): Promise<Mensaje[]> {
       url_archivo,
       media_id,
       estado_media,
+      storage_bucket,
+      storage_path,
       fecha_mensaje
     `)
     .eq("conversacion_id", conversacionId)
@@ -117,7 +123,27 @@ function obtenerEtiquetaTipoMensaje(mensaje: Mensaje) {
   }
 }
 
+function construirUrlPublica(bucket: string, path: string) {
+  if (!URL_SUPABASE) return null;
+
+  const ruta = path
+    .split("/")
+    .map((segmento) => encodeURIComponent(segmento))
+    .join("/");
+
+  return `${URL_SUPABASE}/storage/v1/object/public/${bucket}/${ruta}`;
+}
+
 function obtenerUrlMedia(mensaje: Mensaje) {
+  if (mensaje.storage_bucket && mensaje.storage_path) {
+    const url = construirUrlPublica(mensaje.storage_bucket, mensaje.storage_path);
+
+    if (url) {
+      const version = encodeURIComponent(mensaje.fecha_mensaje ?? mensaje.id);
+      return `${url}?v=${version}`;
+    }
+  }
+
   const urlBase = mensaje.url_archivo?.trim();
 
   if (!urlBase) return null;
@@ -146,6 +172,12 @@ function renderEstadoMedia(mensaje: Mensaje, etiqueta: string) {
       <p className="mt-1 text-xs opacity-70">
         Estado: {mensaje.estado_media || "sin estado"}
       </p>
+      {mensaje.storage_bucket ? (
+        <p className="mt-1 text-xs opacity-70">Bucket: {mensaje.storage_bucket}</p>
+      ) : null}
+      {mensaje.storage_path ? (
+        <p className="mt-1 break-all text-xs opacity-70">{mensaje.storage_path}</p>
+      ) : null}
     </div>
   );
 }
