@@ -2,6 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 type Mensaje = {
   id: string;
   direccion: "entrante" | "saliente";
@@ -112,11 +115,7 @@ function obtenerEtiquetaTipoMensaje(mensaje: Mensaje) {
 
 function obtenerContenidoMensaje(mensaje: Mensaje) {
   if (mensaje.tipo === "text" && mensaje.texto) {
-    return (
-      <p className="mt-1 whitespace-pre-wrap text-sm">
-        {mensaje.texto}
-      </p>
-    );
+    return <p className="mt-1 whitespace-pre-wrap text-sm">{mensaje.texto}</p>;
   }
 
   if (mensaje.tipo === "document") {
@@ -184,6 +183,7 @@ export default async function ChatPage({
         <header className="flex items-center gap-3 border-b border-neutral-200 px-4 py-3">
           <Link
             href="/"
+            prefetch={false}
             className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50"
           >
             Volver
