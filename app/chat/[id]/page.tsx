@@ -14,6 +14,7 @@ type Mensaje = {
   mime_type: string | null;
   url_archivo: string | null;
   media_id: string | null;
+  estado_media: string | null;
   fecha_mensaje: string | null;
 };
 
@@ -76,6 +77,7 @@ async function obtenerMensajes(conversacionId: string): Promise<Mensaje[]> {
       mime_type,
       url_archivo,
       media_id,
+      estado_media,
       fecha_mensaje
     `)
     .eq("conversacion_id", conversacionId)
@@ -116,15 +118,35 @@ function obtenerEtiquetaTipoMensaje(mensaje: Mensaje) {
 }
 
 function obtenerUrlMedia(mensaje: Mensaje) {
-  if (!mensaje.url_archivo) return null;
-  return mensaje.url_archivo;
+  const urlBase = mensaje.url_archivo?.trim();
+
+  if (!urlBase) return null;
+
+  const version = encodeURIComponent(mensaje.fecha_mensaje ?? mensaje.id);
+
+  if (urlBase.includes("?")) {
+    return `${urlBase}&v=${version}`;
+  }
+
+  return `${urlBase}?v=${version}`;
 }
 
 function esPdf(mensaje: Mensaje) {
   return (
     mensaje.tipo === "document" &&
     (mensaje.mime_type === "application/pdf" ||
-      mensaje.nombre_archivo?.toLowerCase().endsWith(".pdf"))
+      mensaje.nombre_archivo?.toLowerCase().endsWith(".pdf") === true)
+  );
+}
+
+function renderEstadoMedia(mensaje: Mensaje, etiqueta: string) {
+  return (
+    <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
+      <p>{etiqueta}</p>
+      <p className="mt-1 text-xs opacity-70">
+        Estado: {mensaje.estado_media || "sin estado"}
+      </p>
+    </div>
   );
 }
 
@@ -137,31 +159,25 @@ function obtenerContenidoMensaje(mensaje: Mensaje) {
 
   if (mensaje.tipo === "image") {
     if (!mediaUrl) {
-      return (
-        <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
-          📷 Imagen recibida
-        </div>
-      );
+      return renderEstadoMedia(mensaje, "📷 Imagen recibida");
     }
 
     return (
       <div className="mt-2">
-        <img
-          src={mediaUrl}
-          alt="Imagen recibida"
-          className="max-h-[420px] w-full rounded-xl border border-black/10 bg-black/5 object-contain"
-        />
+        <a href={mediaUrl} target="_blank" rel="noreferrer">
+          <img
+            src={mediaUrl}
+            alt="Imagen recibida"
+            className="max-h-[420px] w-full rounded-xl border border-black/10 bg-black/5 object-contain"
+          />
+        </a>
       </div>
     );
   }
 
   if (mensaje.tipo === "video") {
     if (!mediaUrl) {
-      return (
-        <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
-          🎥 Video recibido
-        </div>
-      );
+      return renderEstadoMedia(mensaje, "🎥 Video recibido");
     }
 
     return (
@@ -169,24 +185,28 @@ function obtenerContenidoMensaje(mensaje: Mensaje) {
         <video
           controls
           preload="metadata"
+          playsInline
           className="max-h-[420px] w-full rounded-xl border border-black/10 bg-black"
         >
           <source src={mediaUrl} type={mensaje.mime_type ?? "video/mp4"} />
           Tu navegador no soporta video.
         </video>
+
+        <a
+          href={mediaUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2 inline-block text-sm underline"
+        >
+          Abrir video en otra pestaña
+        </a>
       </div>
     );
   }
 
   if (esPdf(mensaje)) {
     if (!mediaUrl) {
-      return (
-        <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
-          <p className="font-medium">
-            📄 {mensaje.nombre_archivo || "PDF recibido"}
-          </p>
-        </div>
-      );
+      return renderEstadoMedia(mensaje, `📄 ${mensaje.nombre_archivo || "PDF recibido"}`);
     }
 
     return (
@@ -222,6 +242,12 @@ function obtenerContenidoMensaje(mensaje: Mensaje) {
           <p className="mt-1 text-xs opacity-70">{mensaje.mime_type}</p>
         ) : null}
 
+        {!mediaUrl ? (
+          <p className="mt-1 text-xs opacity-70">
+            Estado: {mensaje.estado_media || "sin estado"}
+          </p>
+        ) : null}
+
         {mediaUrl ? (
           <a
             href={mediaUrl}
@@ -238,11 +264,7 @@ function obtenerContenidoMensaje(mensaje: Mensaje) {
 
   if (mensaje.tipo === "audio") {
     if (!mediaUrl) {
-      return (
-        <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
-          🎙️ Audio recibido
-        </div>
-      );
+      return renderEstadoMedia(mensaje, "🎙️ Audio recibido");
     }
 
     return (
@@ -251,6 +273,15 @@ function obtenerContenidoMensaje(mensaje: Mensaje) {
           <source src={mediaUrl} type={mensaje.mime_type ?? "audio/mpeg"} />
           Tu navegador no soporta audio.
         </audio>
+
+        <a
+          href={mediaUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2 inline-block text-sm underline"
+        >
+          Abrir audio en otra pestaña
+        </a>
       </div>
     );
   }
