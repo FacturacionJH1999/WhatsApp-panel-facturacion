@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { EnviarMensaje } from "./EnviarMensaje";
+import { AutoRefreshChat } from "./AutoRefreshChat";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -385,6 +386,8 @@ export default async function ChatPage({
 
   return (
     <main className="min-h-screen bg-neutral-100">
+      <AutoRefreshChat intervaloMs={3000} />
+
       <div className="mx-auto flex min-h-screen max-w-5xl flex-col bg-white">
         <header className="flex items-center gap-3 border-b border-neutral-200 px-4 py-3">
           <Link
