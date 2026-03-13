@@ -17,18 +17,14 @@ export async function descargarYGuardarMedia({
       return;
     }
 
-    // 1️⃣ obtener url temporal del media
-    const infoResponse = await fetch(
-      `https://waba-v2.360dialog.io/${mediaId}`,
-      {
-        headers: {
-          "D360-API-KEY": apiKey,
-        },
-      }
-    );
+    const infoResponse = await fetch(`https://waba-v2.360dialog.io/${mediaId}`, {
+      headers: {
+        "D360-API-KEY": apiKey,
+      },
+    });
 
     if (!infoResponse.ok) {
-      console.error("Error obteniendo media info");
+      console.error("Error obteniendo media info:", infoResponse.status);
       return;
     }
 
@@ -44,7 +40,6 @@ export async function descargarYGuardarMedia({
       "https://waba-v2.360dialog.io"
     );
 
-    // 2️⃣ descargar archivo
     const mediaResponse = await fetch(downloadUrl, {
       headers: {
         "D360-API-KEY": apiKey,
@@ -52,7 +47,7 @@ export async function descargarYGuardarMedia({
     });
 
     if (!mediaResponse.ok) {
-      console.error("Error descargando media");
+      console.error("Error descargando media:", mediaResponse.status);
       return;
     }
 
@@ -60,10 +55,8 @@ export async function descargarYGuardarMedia({
     const fileBuffer = Buffer.from(buffer);
 
     const extension = mimeType?.split("/")[1] ?? "bin";
-
     const storagePath = `whatsapp/${mensajeId}.${extension}`;
 
-    // 3️⃣ subir a Supabase Storage
     const { error: uploadError } = await supabaseAdmin.storage
       .from("whatsapp-media")
       .upload(storagePath, fileBuffer, {
@@ -76,13 +69,11 @@ export async function descargarYGuardarMedia({
       return;
     }
 
-    // 4️⃣ obtener url pública
     const { data } = supabaseAdmin.storage
       .from("whatsapp-media")
       .getPublicUrl(storagePath);
 
-    // 5️⃣ actualizar mensaje
-    await supabaseAdmin
+    const { error: errorActualizarMensaje } = await supabaseAdmin
       .from("mensajes")
       .update({
         storage_bucket: "whatsapp-media",
@@ -93,7 +84,16 @@ export async function descargarYGuardarMedia({
       })
       .eq("id", mensajeId);
 
-    console.log("Media guardado:", storagePath);
+    if (errorActualizarMensaje) {
+      console.error("Error actualizando mensaje con media:", errorActualizarMensaje);
+      return;
+    }
+
+    console.log("Media guardado:", {
+      mensajeId,
+      mediaId,
+      storagePath,
+    });
   } catch (error) {
     console.error("Error guardando media:", error);
   }
