@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { guardarMensajeEntrante } from "@/lib/whatsapp/guardarMensajeEntrante";
+import { reenviarArchivoAlPapa } from "@/lib/whatsapp/reenviarArchivoAlPapa";
 
 function convertirFechaMensaje(timestamp: unknown): string {
   if (typeof timestamp === "string" || typeof timestamp === "number") {
@@ -28,10 +29,9 @@ export async function POST(req: Request) {
 
     console.log("Webhook recibido:", JSON.stringify(body, null, 2));
 
-    const mensajes =
-      body?.messages ??
-      body?.entry?.[0]?.changes?.[0]?.value?.messages ??
-      [];
+    const value = body?.entry?.[0]?.changes?.[0]?.value ?? body;
+    const mensajes = value?.messages ?? body?.messages ?? [];
+    const contactos = value?.contacts ?? [];
 
     console.log("Mensajes detectados:", JSON.stringify(mensajes, null, 2));
 
@@ -49,6 +49,13 @@ export async function POST(req: Request) {
       const fechaMensaje = convertirFechaMensaje(mensaje?.timestamp);
 
       if (!telefono) continue;
+
+      const contacto = contactos.find(
+        (item: { wa_id?: string; profile?: { name?: string } }) =>
+          item?.wa_id === telefono
+      );
+
+      const nombre = contacto?.profile?.name ?? null;
 
       let texto: string | null = null;
       let nombreArchivo: string | null = null;
@@ -82,6 +89,7 @@ export async function POST(req: Request) {
 
       console.log("Guardando mensaje:", {
         telefono,
+        nombre,
         waMessageId,
         tipo,
         texto,
@@ -93,7 +101,7 @@ export async function POST(req: Request) {
 
       await guardarMensajeEntrante({
         telefono,
-        nombre: null,
+        nombre,
         waMessageId,
         tipo,
         texto,
@@ -102,6 +110,32 @@ export async function POST(req: Request) {
         mediaId,
         fechaMensaje,
       });
+
+      const esImagen = tipo === "image";
+      const esDocumento = tipo === "document";
+
+      const esPdf = mimeType === "application/pdf";
+      const esWordAntiguo = mimeType === "application/msword";
+      const esWordNuevo =
+        mimeType ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+      if (mediaId && esImagen) {
+        await reenviarArchivoAlPapa({
+          mediaId,
+          tipo: "image",
+          telefonoCliente: telefono,
+        });
+      }
+
+      if (mediaId && esDocumento && (esPdf || esWordAntiguo || esWordNuevo)) {
+        await reenviarArchivoAlPapa({
+          mediaId,
+          tipo: "document",
+          nombreArchivo,
+          telefonoCliente: telefono,
+        });
+      }
     }
 
     return NextResponse.json({ ok: true });
