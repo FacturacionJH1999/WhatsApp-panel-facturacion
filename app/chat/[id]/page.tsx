@@ -116,8 +116,8 @@ function obtenerEtiquetaTipoMensaje(mensaje: Mensaje) {
 }
 
 function obtenerUrlMedia(mensaje: Mensaje) {
-  if (!mensaje.media_id) return null;
-  return `/api/whatsapp/media/${mensaje.media_id}`;
+  if (!mensaje.url_archivo) return null;
+  return mensaje.url_archivo;
 }
 
 function esPdf(mensaje: Mensaje) {
@@ -135,19 +135,35 @@ function obtenerContenidoMensaje(mensaje: Mensaje) {
     return <p className="mt-1 whitespace-pre-wrap text-sm">{mensaje.texto}</p>;
   }
 
-  if (mensaje.tipo === "image" && mediaUrl) {
+  if (mensaje.tipo === "image") {
+    if (!mediaUrl) {
+      return (
+        <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
+          📷 Imagen recibida
+        </div>
+      );
+    }
+
     return (
       <div className="mt-2">
         <img
           src={mediaUrl}
           alt="Imagen recibida"
-          className="max-h-[420px] w-full rounded-xl border border-black/10 object-contain bg-black/5"
+          className="max-h-[420px] w-full rounded-xl border border-black/10 bg-black/5 object-contain"
         />
       </div>
     );
   }
 
-  if (mensaje.tipo === "video" && mediaUrl) {
+  if (mensaje.tipo === "video") {
+    if (!mediaUrl) {
+      return (
+        <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
+          🎥 Video recibido
+        </div>
+      );
+    }
+
     return (
       <div className="mt-2">
         <video
@@ -162,7 +178,17 @@ function obtenerContenidoMensaje(mensaje: Mensaje) {
     );
   }
 
-  if (esPdf(mensaje) && mediaUrl) {
+  if (esPdf(mensaje)) {
+    if (!mediaUrl) {
+      return (
+        <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
+          <p className="font-medium">
+            📄 {mensaje.nombre_archivo || "PDF recibido"}
+          </p>
+        </div>
+      );
+    }
+
     return (
       <div className="mt-2">
         <div className="overflow-hidden rounded-xl border border-black/10 bg-white">
@@ -210,7 +236,15 @@ function obtenerContenidoMensaje(mensaje: Mensaje) {
     );
   }
 
-  if (mensaje.tipo === "audio" && mediaUrl) {
+  if (mensaje.tipo === "audio") {
+    if (!mediaUrl) {
+      return (
+        <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
+          🎙️ Audio recibido
+        </div>
+      );
+    }
+
     return (
       <div className="mt-2">
         <audio controls className="w-full">

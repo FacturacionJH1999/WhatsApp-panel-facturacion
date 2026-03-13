@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../supabaseAdmin";
+import { descargarYGuardarMedia } from "./descargarYGuardarMedia";
 
 type GuardarMensajeEntranteParams = {
   telefono: string;
@@ -25,6 +26,8 @@ export async function guardarMensajeEntrante({
 }: GuardarMensajeEntranteParams) {
   let contactoId = "";
   let conversacionId = "";
+
+  const fechaFinal = fechaMensaje ?? new Date().toISOString();
 
   const { data: contactoExistente, error: errorContactoBusqueda } = await supabaseAdmin
     .from("contactos")
@@ -91,17 +94,21 @@ export async function guardarMensajeEntrante({
     conversacionId = nuevaConversacion.id;
   }
 
-  const { error: errorMensaje } = await supabaseAdmin.from("mensajes").insert({
-    conversacion_id: conversacionId,
-    wa_message_id: waMessageId ?? null,
-    direccion: "entrante",
-    tipo,
-    texto: texto ?? null,
-    nombre_archivo: nombreArchivo ?? null,
-    mime_type: mimeType ?? null,
-    media_id: mediaId ?? null,
-    fecha_mensaje: fechaMensaje ?? new Date().toISOString(),
-  });
+  const { data: nuevoMensaje, error: errorMensaje } = await supabaseAdmin
+    .from("mensajes")
+    .insert({
+      conversacion_id: conversacionId,
+      wa_message_id: waMessageId ?? null,
+      direccion: "entrante",
+      tipo,
+      texto: texto ?? null,
+      nombre_archivo: nombreArchivo ?? null,
+      mime_type: mimeType ?? null,
+      media_id: mediaId ?? null,
+      fecha_mensaje: fechaFinal,
+    })
+    .select("id")
+    .single();
 
   if (errorMensaje) {
     throw errorMensaje;
@@ -110,11 +117,19 @@ export async function guardarMensajeEntrante({
   const { error: errorActualizarConversacion } = await supabaseAdmin
     .from("conversaciones")
     .update({
-      ultima_actividad: fechaMensaje ?? new Date().toISOString(),
+      ultima_actividad: fechaFinal,
     })
     .eq("id", conversacionId);
 
   if (errorActualizarConversacion) {
     throw errorActualizarConversacion;
+  }
+
+  if (mediaId && nuevoMensaje?.id) {
+    await descargarYGuardarMedia({
+      mediaId,
+      mimeType: mimeType ?? null,
+      mensajeId: nuevoMensaje.id,
+    });
   }
 }
