@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { EnviarMensaje } from "./EnviarMensaje";
 import { AutoRefreshChat } from "./AutoRefreshChat";
 import { AutoScrollChat } from "./AutoScrollChat";
+import { EstadoConversacionSelector } from "./EstadoConversacionSelector";
 import { requireUser } from "@/lib/auth/requireUser";
 import { puedeVerConversacion } from "@/lib/auth/puedeVerConversacion";
 
@@ -11,6 +12,8 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const URL_SUPABASE = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+type EstadoConversacion = "nueva" | "en_proceso" | "cerrada";
 
 type Mensaje = {
   id: string;
@@ -30,6 +33,7 @@ type Mensaje = {
 type ConversacionDetalle = {
   id: string;
   ultima_actividad: string;
+  estado: EstadoConversacion;
   contactos: {
     telefono: string;
     nombre: string | null;
@@ -41,7 +45,7 @@ async function obtenerConversacion(
 ): Promise<ConversacionDetalle | null> {
   const { data, error } = await supabaseAdmin
     .from("conversaciones")
-    .select("id, contacto_id, ultima_actividad")
+    .select("id, contacto_id, ultima_actividad, estado")
     .eq("id", id)
     .maybeSingle();
 
@@ -78,6 +82,7 @@ async function obtenerConversacion(
   return {
     id: data.id,
     ultima_actividad: data.ultima_actividad,
+    estado: (data.estado as EstadoConversacion) ?? "nueva",
     contactos: contacto
       ? {
           telefono: contacto.telefono,
@@ -400,12 +405,12 @@ export default async function ChatPage({
 
   return (
     <main className="h-screen overflow-hidden bg-neutral-100">
-      { <AutoRefreshChat intervaloMs={3000} />}
+      <AutoRefreshChat intervaloMs={3000} />
       <AutoScrollChat />
 
       <div className="mx-auto flex h-screen max-w-5xl flex-col bg-white">
         <header className="shrink-0 border-b border-neutral-200 px-4 py-3">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
               <Link
                 href="/"
@@ -427,13 +432,20 @@ export default async function ChatPage({
               </div>
             </div>
 
-            <div className="text-right">
-              <p className="text-xs font-medium text-neutral-700">
-                {perfil.nombre || perfil.email || "Usuario"}
-              </p>
-              <p className="text-[11px] uppercase tracking-wide text-neutral-500">
-                {perfil.rol}
-              </p>
+            <div className="flex items-start gap-4">
+              <EstadoConversacionSelector
+                conversacionId={conversacion.id}
+                estadoActual={conversacion.estado}
+              />
+
+              <div className="text-right">
+                <p className="text-xs font-medium text-neutral-700">
+                  {perfil.nombre || perfil.email || "Usuario"}
+                </p>
+                <p className="text-[11px] uppercase tracking-wide text-neutral-500">
+                  {perfil.rol}
+                </p>
+              </div>
             </div>
           </div>
         </header>
@@ -454,7 +466,9 @@ export default async function ChatPage({
                 return (
                   <div
                     key={mensaje.id}
-                    className={`flex ${esEntrante ? "justify-start" : "justify-end"}`}
+                    className={`flex ${
+                      esEntrante ? "justify-start" : "justify-end"
+                    }`}
                   >
                     <div
                       className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${

@@ -5,17 +5,25 @@ import { requireUser } from "@/lib/auth/requireUser";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+type RolUsuario = "admin" | "empleado";
+type EstadoConversacion = "nueva" | "en_proceso" | "cerrada";
+
 type ConversacionLista = {
   id: string;
   ultima_actividad: string;
   mensajes_no_leidos: number;
+  estado: EstadoConversacion;
   contactos: {
     telefono: string;
     nombre: string | null;
   } | null;
 };
 
-async function obtenerConversaciones(usuarioId: string, rol: "admin" | "empleado"): Promise<ConversacionLista[]> {
+async function obtenerConversaciones(
+  usuarioId: string,
+  rol: RolUsuario,
+  estadoFiltro?: string
+): Promise<ConversacionLista[]> {
   let conversacionesIdsPermitidas: string[] | null = null;
 
   if (rol !== "admin") {
@@ -29,9 +37,9 @@ async function obtenerConversaciones(usuarioId: string, rol: "admin" | "empleado
       return [];
     }
 
-    conversacionesIdsPermitidas = (asignaciones ?? []).map(
-      (item) => item.conversacion_id
-    );
+    conversacionesIdsPermitidas = (asignaciones ?? [])
+      .map((item) => item.conversacion_id)
+      .filter(Boolean);
 
     if (conversacionesIdsPermitidas.length === 0) {
       return [];
@@ -40,11 +48,15 @@ async function obtenerConversaciones(usuarioId: string, rol: "admin" | "empleado
 
   let consulta = supabaseAdmin
     .from("conversaciones")
-    .select("id, contacto_id, ultima_actividad, mensajes_no_leidos")
+    .select("id, contacto_id, ultima_actividad, mensajes_no_leidos, estado")
     .order("ultima_actividad", { ascending: false });
 
   if (conversacionesIdsPermitidas) {
     consulta = consulta.in("id", conversacionesIdsPermitidas);
+  }
+
+  if (estadoFiltro && estadoFiltro !== "todas") {
+    consulta = consulta.eq("estado", estadoFiltro);
   }
 
   const { data: conversaciones, error: errorConversaciones } = await consulta;
@@ -62,6 +74,16 @@ async function obtenerConversaciones(usuarioId: string, rol: "admin" | "empleado
     .map((conversacion) => conversacion.contacto_id)
     .filter(Boolean);
 
+  if (contactoIds.length === 0) {
+    return conversaciones.map((conversacion) => ({
+      id: conversacion.id,
+      ultima_actividad: conversacion.ultima_actividad,
+      mensajes_no_leidos: conversacion.mensajes_no_leidos ?? 0,
+      estado: (conversacion.estado as EstadoConversacion) ?? "nueva",
+      contactos: null,
+    }));
+  }
+
   const { data: contactos, error: errorContactos } = await supabaseAdmin
     .from("contactos")
     .select("id, telefono, nombre")
@@ -73,6 +95,7 @@ async function obtenerConversaciones(usuarioId: string, rol: "admin" | "empleado
       id: conversacion.id,
       ultima_actividad: conversacion.ultima_actividad,
       mensajes_no_leidos: conversacion.mensajes_no_leidos ?? 0,
+      estado: (conversacion.estado as EstadoConversacion) ?? "nueva",
       contactos: null,
     }));
   }
@@ -91,6 +114,7 @@ async function obtenerConversaciones(usuarioId: string, rol: "admin" | "empleado
     id: conversacion.id,
     ultima_actividad: conversacion.ultima_actividad,
     mensajes_no_leidos: conversacion.mensajes_no_leidos ?? 0,
+    estado: (conversacion.estado as EstadoConversacion) ?? "nueva",
     contactos: mapaContactos.get(conversacion.contacto_id) ?? null,
   }));
 }
@@ -104,9 +128,53 @@ function formatearFecha(fechaIso: string) {
   }).format(fecha);
 }
 
-export default async function Home() {
+function obtenerTextoEstado(estado: EstadoConversacion) {
+  switch (estado) {
+    case "nueva":
+      return "Nueva";
+    case "en_proceso":
+      return "En proceso";
+    case "cerrada":
+      return "Cerrada";
+    default:
+      return estado;
+  }
+}
+
+function obtenerClasesEstado(estado: EstadoConversacion) {
+  switch (estado) {
+    case "nueva":
+      return "bg-blue-100 text-blue-700";
+    case "en_proceso":
+      return "bg-amber-100 text-amber-700";
+    case "cerrada":
+      return "bg-emerald-100 text-emerald-700";
+    default:
+      return "bg-neutral-100 text-neutral-700";
+  }
+}
+
+function obtenerClasesFiltro(activo: boolean) {
+  return activo
+    ? "rounded-lg border border-black bg-black px-2 py-1 text-white"
+    : "rounded-lg border border-neutral-300 px-2 py-1 text-neutral-700 hover:bg-neutral-100";
+}
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ estado?: string }>;
+}) {
   const { perfil } = await requireUser();
-  const conversaciones = await obtenerConversaciones(perfil.id, perfil.rol);
+  const { estado } = await searchParams;
+
+  const estadoFiltro = estado ?? "todas";
+
+  const conversaciones = await obtenerConversaciones(
+    perfil.id,
+    perfil.rol,
+    estadoFiltro
+  );
 
   return (
     <main className="min-h-screen bg-neutral-100">
@@ -143,6 +211,36 @@ export default async function Home() {
             </div>
           </div>
 
+          <div className="flex flex-wrap gap-2 px-3 pb-3 pt-3 text-xs font-medium">
+            <Link
+              href="/"
+              className={obtenerClasesFiltro(estadoFiltro === "todas")}
+            >
+              Todas
+            </Link>
+
+            <Link
+              href="/?estado=nueva"
+              className={obtenerClasesFiltro(estadoFiltro === "nueva")}
+            >
+              Nuevas
+            </Link>
+
+            <Link
+              href="/?estado=en_proceso"
+              className={obtenerClasesFiltro(estadoFiltro === "en_proceso")}
+            >
+              En proceso
+            </Link>
+
+            <Link
+              href="/?estado=cerrada"
+              className={obtenerClasesFiltro(estadoFiltro === "cerrada")}
+            >
+              Cerradas
+            </Link>
+          </div>
+
           <div className="space-y-3 p-3">
             {conversaciones.length === 0 ? (
               <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
@@ -163,12 +261,23 @@ export default async function Home() {
                   className="block rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition hover:bg-neutral-50"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-neutral-900">
-                        {conversacion.contactos?.nombre?.trim() ||
-                          conversacion.contactos?.telefono ||
-                          "Sin nombre"}
-                      </p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-semibold text-neutral-900">
+                          {conversacion.contactos?.nombre?.trim() ||
+                            conversacion.contactos?.telefono ||
+                            "Sin nombre"}
+                        </p>
+
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${obtenerClasesEstado(
+                            conversacion.estado
+                          )}`}
+                        >
+                          {obtenerTextoEstado(conversacion.estado)}
+                        </span>
+                      </div>
+
                       <p className="mt-1 text-xs text-neutral-500">
                         {conversacion.contactos?.telefono || "Sin teléfono"}
                       </p>

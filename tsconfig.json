@@ -29,6 +29,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-  ],
+, "app/chat/[id]/EstadoConversacionSelector.tsx"  ],
   "exclude": ["node_modules"]
 }
