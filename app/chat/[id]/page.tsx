@@ -210,22 +210,6 @@ function renderEstadoMedia(mensaje: Mensaje, etiqueta: string) {
           Abrir URL construida desde storage
         </a>
       ) : null}
-
-      {mensaje.storage_bucket ? (
-        <p className="mt-2 text-xs opacity-70">Bucket: {mensaje.storage_bucket}</p>
-      ) : null}
-
-      {mensaje.storage_path ? (
-        <p className="mt-1 break-all text-xs opacity-70">
-          Path: {mensaje.storage_path}
-        </p>
-      ) : null}
-
-      {mensaje.url_archivo ? (
-        <p className="mt-1 break-all text-xs opacity-70">
-          url_archivo: {mensaje.url_archivo}
-        </p>
-      ) : null}
     </div>
   );
 }
@@ -385,69 +369,73 @@ export default async function ChatPage({
   const mensajes = await obtenerMensajes(id);
 
   return (
-    <main className="min-h-screen bg-neutral-100">
+    <main className="h-screen overflow-hidden bg-neutral-100">
       <AutoRefreshChat intervaloMs={3000} />
 
-      <div className="mx-auto flex min-h-screen max-w-5xl flex-col bg-white">
-        <header className="flex items-center gap-3 border-b border-neutral-200 px-4 py-3">
-          <Link
-            href="/"
-            prefetch={false}
-            className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50"
-          >
-            Volver
-          </Link>
+      <div className="mx-auto flex h-screen max-w-5xl flex-col bg-white">
+        <header className="shrink-0 border-b border-neutral-200 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              prefetch={false}
+              className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50"
+            >
+              Volver
+            </Link>
 
-          <div>
-            <h1 className="text-sm font-semibold text-neutral-900">
-              {conversacion.contactos?.nombre?.trim() ||
-                conversacion.contactos?.telefono ||
-                "Sin nombre"}
-            </h1>
-            <p className="text-xs text-neutral-500">
-              {conversacion.contactos?.telefono || "Sin teléfono"}
-            </p>
+            <div>
+              <h1 className="text-sm font-semibold text-neutral-900">
+                {conversacion.contactos?.nombre?.trim() ||
+                  conversacion.contactos?.telefono ||
+                  "Sin nombre"}
+              </h1>
+              <p className="text-xs text-neutral-500">
+                {conversacion.contactos?.telefono || "Sin teléfono"}
+              </p>
+            </div>
           </div>
         </header>
 
-        <section className="flex-1 space-y-3 bg-neutral-50 p-4">
-          {mensajes.length === 0 ? (
-            <div className="rounded-xl border border-neutral-200 bg-white p-4 text-sm text-neutral-500">
-              Esta conversación todavía no tiene mensajes.
-            </div>
-          ) : (
-            mensajes.map((mensaje) => {
-              const esEntrante = mensaje.direccion === "entrante";
+        <section className="min-h-0 flex-1 overflow-y-auto bg-neutral-50 p-4">
+          <div className="space-y-3">
+            {mensajes.length === 0 ? (
+              <div className="rounded-xl border border-neutral-200 bg-white p-4 text-sm text-neutral-500">
+                Esta conversación todavía no tiene mensajes.
+              </div>
+            ) : (
+              mensajes.map((mensaje) => {
+                const esEntrante = mensaje.direccion === "entrante";
 
-              return (
-                <div
-                  key={mensaje.id}
-                  className={`flex ${esEntrante ? "justify-start" : "justify-end"}`}
-                >
+                return (
                   <div
-                    className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${
-                      esEntrante
-                        ? "bg-white text-neutral-900"
-                        : "bg-neutral-900 text-white"
-                    }`}
+                    key={mensaje.id}
+                    className={`flex ${esEntrante ? "justify-start" : "justify-end"}`}
                   >
-                    <p className="text-xs opacity-70">
-                      {obtenerEtiquetaTipoMensaje(mensaje)}
-                    </p>
+                    <div
+                      className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${
+                        esEntrante
+                          ? "bg-white text-neutral-900"
+                          : "bg-neutral-900 text-white"
+                      }`}
+                    >
+                      <p className="text-xs opacity-70">
+                        {obtenerEtiquetaTipoMensaje(mensaje)}
+                      </p>
 
-                    {obtenerContenidoMensaje(mensaje)}
+                      {obtenerContenidoMensaje(mensaje)}
 
-                    <p className="mt-2 text-[11px] opacity-60">
-                      {formatearHora(mensaje.fecha_mensaje)}
-                    </p>
+                      <p className="mt-2 text-[11px] opacity-60">
+                        {formatearHora(mensaje.fecha_mensaje)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              );
-            })
-          )}
+                );
+              })
+            )}
+          </div>
         </section>
 
-        <footer className="border-t border-neutral-200 bg-white p-3">
+        <footer className="shrink-0 border-t border-neutral-200 bg-white p-3">
           <EnviarMensaje telefono={conversacion.contactos?.telefono || ""} />
         </footer>
       </div>
