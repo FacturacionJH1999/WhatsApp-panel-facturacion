@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getUserProfile } from "@/lib/auth/getUserProfile";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 const API_KEY = process.env.D360_API_KEY;
 
@@ -30,10 +31,82 @@ export async function POST(req: Request) {
 
     const formDataEntrada = await req.formData();
     const archivo = formDataEntrada.get("file");
+    const conversacionId = String(
+      formDataEntrada.get("conversacionId") ?? ""
+    ).trim();
 
     if (!(archivo instanceof File)) {
       return NextResponse.json(
         { ok: false, error: "Archivo requerido" },
+        { status: 400 }
+      );
+    }
+
+    if (!conversacionId) {
+      return NextResponse.json(
+        { ok: false, error: "conversacionId es requerido" },
+        { status: 400 }
+      );
+    }
+
+    const { data: conversacion, error: errorConversacion } = await supabaseAdmin
+      .from("conversaciones")
+      .select("id, numero_whatsapp_id")
+      .eq("id", conversacionId)
+      .maybeSingle();
+
+    if (errorConversacion) {
+      console.error("Error consultando conversación:", errorConversacion);
+
+      return NextResponse.json(
+        { ok: false, error: "Error consultando conversación" },
+        { status: 500 }
+      );
+    }
+
+    if (!conversacion?.id) {
+      return NextResponse.json(
+        { ok: false, error: "Conversación no encontrada" },
+        { status: 404 }
+      );
+    }
+
+    if (!conversacion.numero_whatsapp_id) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "La conversación no tiene numero_whatsapp_id asociado",
+        },
+        { status: 400 }
+      );
+    }
+
+    const { data: numeroWhatsapp, error: errorNumeroWhatsapp } =
+      await supabaseAdmin
+        .from("numeros_whatsapp")
+        .select("id, phone_number_id, numero, nombre_interno, activo")
+        .eq("id", conversacion.numero_whatsapp_id)
+        .maybeSingle();
+
+    if (errorNumeroWhatsapp) {
+      console.error("Error consultando número de WhatsApp:", errorNumeroWhatsapp);
+
+      return NextResponse.json(
+        { ok: false, error: "Error consultando número de WhatsApp" },
+        { status: 500 }
+      );
+    }
+
+    if (!numeroWhatsapp?.id) {
+      return NextResponse.json(
+        { ok: false, error: "Número de WhatsApp no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    if (!numeroWhatsapp.activo) {
+      return NextResponse.json(
+        { ok: false, error: "El número de WhatsApp está inactivo" },
         { status: 400 }
       );
     }
@@ -63,12 +136,22 @@ export async function POST(req: Request) {
       );
     }
 
-    return NextResponse.json({ ok: true, ...data });
+    return NextResponse.json({
+      ok: true,
+      numeroWhatsappId: numeroWhatsapp.id,
+      phoneNumberId: numeroWhatsapp.phone_number_id,
+      ...data,
+    });
   } catch (error) {
     console.error("Error subiendo media:", error);
 
     return NextResponse.json(
-      { ok: false, error: "Error subiendo media" },
+      {
+        ok: false,
+        error: "Error subiendo media",
+        detalle:
+          error instanceof Error ? error.message : "Error desconocido",
+      },
       { status: 500 }
     );
   }

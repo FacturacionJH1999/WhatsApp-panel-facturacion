@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { guardarMensajeSaliente } from "@/lib/whatsapp/guardarMensajeSaliente";
 import { getUserProfile } from "@/lib/auth/getUserProfile";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 const API_KEY = process.env.D360_API_KEY;
 
@@ -35,6 +36,7 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     const telefono = String(body?.telefono ?? "").trim();
+    const conversacionId = String(body?.conversacionId ?? "").trim();
     const texto = typeof body?.texto === "string" ? body.texto : "";
     const tipo: TipoMensajeSaliente =
       body?.tipo === "image" ||
@@ -56,10 +58,79 @@ export async function POST(req: Request) {
       );
     }
 
+    if (!conversacionId) {
+      return NextResponse.json(
+        { ok: false, error: "conversacionId es requerido" },
+        { status: 400 }
+      );
+    }
+
     if (!API_KEY) {
       return NextResponse.json(
         { ok: false, error: "Falta D360_API_KEY" },
         { status: 500 }
+      );
+    }
+
+    const { data: conversacion, error: errorConversacion } = await supabaseAdmin
+      .from("conversaciones")
+      .select("id, contacto_id, numero_whatsapp_id")
+      .eq("id", conversacionId)
+      .maybeSingle();
+
+    if (errorConversacion) {
+      console.error("Error consultando conversación:", errorConversacion);
+
+      return NextResponse.json(
+        { ok: false, error: "Error consultando conversación" },
+        { status: 500 }
+      );
+    }
+
+    if (!conversacion?.id) {
+      return NextResponse.json(
+        { ok: false, error: "Conversación no encontrada" },
+        { status: 404 }
+      );
+    }
+
+    if (!conversacion.numero_whatsapp_id) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "La conversación no tiene numero_whatsapp_id asociado",
+        },
+        { status: 400 }
+      );
+    }
+
+    const { data: numeroWhatsapp, error: errorNumeroWhatsapp } =
+      await supabaseAdmin
+        .from("numeros_whatsapp")
+        .select("id, phone_number_id, numero, nombre_interno, activo")
+        .eq("id", conversacion.numero_whatsapp_id)
+        .maybeSingle();
+
+    if (errorNumeroWhatsapp) {
+      console.error("Error consultando número de WhatsApp:", errorNumeroWhatsapp);
+
+      return NextResponse.json(
+        { ok: false, error: "Error consultando número de WhatsApp" },
+        { status: 500 }
+      );
+    }
+
+    if (!numeroWhatsapp?.id) {
+      return NextResponse.json(
+        { ok: false, error: "Número de WhatsApp no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    if (!numeroWhatsapp.activo) {
+      return NextResponse.json(
+        { ok: false, error: "El número de WhatsApp está inactivo" },
+        { status: 400 }
       );
     }
 
@@ -149,6 +220,8 @@ export async function POST(req: Request) {
         status: response.status,
         statusText: response.statusText,
         body: textoRespuesta,
+        conversacionId,
+        numeroWhatsappId: numeroWhatsapp.id,
       });
 
       return NextResponse.json(
@@ -172,6 +245,8 @@ export async function POST(req: Request) {
 
     await guardarMensajeSaliente({
       telefono,
+      conversacionId,
+      numeroWhatsappId: numeroWhatsapp.id,
       texto:
         tipo === "text"
           ? texto.trim()

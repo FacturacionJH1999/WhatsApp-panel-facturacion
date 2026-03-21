@@ -37,6 +37,9 @@ type ConversacionDetalle = {
   estado: EstadoConversacion;
   usuarioAsignadoId: string | null;
   usuarioAsignadoNombre: string | null;
+  numeroWhatsappId: string | null;
+  numeroWhatsappNombre: string | null;
+  numeroWhatsappTelefono: string | null;
   contactos: {
     telefono: string;
     nombre: string | null;
@@ -53,7 +56,7 @@ async function obtenerConversacion(
 ): Promise<ConversacionDetalle | null> {
   const { data, error } = await supabaseAdmin
     .from("conversaciones")
-    .select("id, contacto_id, ultima_actividad, estado")
+    .select("id, contacto_id, ultima_actividad, estado, numero_whatsapp_id")
     .eq("id", id)
     .maybeSingle();
 
@@ -85,6 +88,25 @@ async function obtenerConversacion(
 
   if (errorContacto) {
     console.error("Error cargando contacto:", errorContacto);
+  }
+
+  let numeroWhatsappNombre: string | null = null;
+  let numeroWhatsappTelefono: string | null = null;
+
+  if (data.numero_whatsapp_id) {
+    const { data: numeroWhatsapp, error: errorNumeroWhatsapp } =
+      await supabaseAdmin
+        .from("numeros_whatsapp")
+        .select("id, nombre_interno, numero")
+        .eq("id", data.numero_whatsapp_id)
+        .maybeSingle();
+
+    if (errorNumeroWhatsapp) {
+      console.error("Error cargando número de WhatsApp:", errorNumeroWhatsapp);
+    }
+
+    numeroWhatsappNombre = numeroWhatsapp?.nombre_interno ?? null;
+    numeroWhatsappTelefono = numeroWhatsapp?.numero ?? null;
   }
 
   const { data: asignacion, error: errorAsignacion } = await supabaseAdmin
@@ -122,6 +144,9 @@ async function obtenerConversacion(
     estado: (data.estado as EstadoConversacion) ?? "nueva",
     usuarioAsignadoId,
     usuarioAsignadoNombre,
+    numeroWhatsappId: data.numero_whatsapp_id ?? null,
+    numeroWhatsappNombre,
+    numeroWhatsappTelefono,
     contactos: contacto
       ? {
           telefono: contacto.telefono,
@@ -490,6 +515,16 @@ export default async function ChatPage({
                 <p className="text-xs text-neutral-500">
                   {conversacion.contactos?.telefono || "Sin teléfono"}
                 </p>
+
+                <p className="mt-1 text-[11px] text-neutral-500">
+                  Línea:
+                  <span className="ml-1 font-medium text-neutral-700">
+                    {conversacion.numeroWhatsappNombre ||
+                      conversacion.numeroWhatsappTelefono ||
+                      "Sin línea"}
+                  </span>
+                </p>
+
                 <p className="mt-1 text-[11px] text-neutral-500">
                   Asignado actualmente:{" "}
                   <span className="font-medium text-neutral-700">
@@ -572,6 +607,7 @@ export default async function ChatPage({
         <footer className="shrink-0 border-t border-neutral-200 bg-white p-3">
           <EnviarMensaje
             telefono={conversacion.contactos?.telefono || ""}
+            conversacionId={conversacion.id}
             puedeEnviar={esAdmin}
           />
         </footer>

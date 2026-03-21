@@ -4,11 +4,13 @@ import { useRef, useState } from "react";
 
 type EnviarMensajeProps = {
   telefono: string;
+  conversacionId: string;
   puedeEnviar?: boolean;
 };
 
 export function EnviarMensaje({
   telefono,
+  conversacionId,
   puedeEnviar = true,
 }: EnviarMensajeProps) {
   const [texto, setTexto] = useState("");
@@ -16,7 +18,9 @@ export function EnviarMensaje({
   const inputArchivoRef = useRef<HTMLInputElement | null>(null);
 
   async function enviarTexto() {
-    if (!puedeEnviar || !texto.trim() || !telefono || enviando) return;
+    if (!puedeEnviar || !texto.trim() || !telefono || !conversacionId || enviando) {
+      return;
+    }
 
     setEnviando(true);
 
@@ -28,6 +32,7 @@ export function EnviarMensaje({
         },
         body: JSON.stringify({
           telefono,
+          conversacionId,
           texto: texto.trim(),
           tipo: "text",
         }),
@@ -61,7 +66,9 @@ export function EnviarMensaje({
 
   async function manejarArchivo(e: React.ChangeEvent<HTMLInputElement>) {
     const archivo = e.target.files?.[0];
-    if (!puedeEnviar || !archivo || !telefono || enviando) return;
+    if (!puedeEnviar || !archivo || !telefono || !conversacionId || enviando) {
+      return;
+    }
 
     setEnviando(true);
 
@@ -103,6 +110,7 @@ export function EnviarMensaje({
         },
         body: JSON.stringify({
           telefono,
+          conversacionId,
           tipo,
           mediaId: subidaData.id,
           mimeType: archivo.type || null,
@@ -152,7 +160,7 @@ export function EnviarMensaje({
       <button
         type="button"
         onClick={() => inputArchivoRef.current?.click()}
-        disabled={enviando || !telefono}
+        disabled={enviando || !telefono || !conversacionId}
         className="rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
         Adjuntar
@@ -183,7 +191,7 @@ export function EnviarMensaje({
       <button
         type="button"
         onClick={enviarTexto}
-        disabled={enviando || !texto.trim() || !telefono}
+        disabled={enviando || !texto.trim() || !telefono || !conversacionId}
         className="rounded-xl bg-neutral-900 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
       >
         {enviando ? "Enviando..." : "Enviar"}

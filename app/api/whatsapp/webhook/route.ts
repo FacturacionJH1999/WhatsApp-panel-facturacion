@@ -42,7 +42,11 @@ export async function POST(req: Request) {
         });
       }
 
-      await procesarMensajes(mensajesDirectos, contactosDirectos);
+      await procesarMensajes({
+        mensajes: mensajesDirectos,
+        contactos: contactosDirectos,
+        metadata: body?.metadata ?? null,
+      });
 
       return NextResponse.json({ ok: true });
     }
@@ -54,15 +58,21 @@ export async function POST(req: Request) {
         const value = change?.value ?? {};
         const mensajes = Array.isArray(value?.messages) ? value.messages : [];
         const contactos = Array.isArray(value?.contacts) ? value.contacts : [];
+        const metadata = value?.metadata ?? null;
 
         console.log("Change detectado:", JSON.stringify(change, null, 2));
         console.log("Mensajes extraídos de change:", JSON.stringify(mensajes, null, 2));
+        console.log("Metadata detectada:", JSON.stringify(metadata, null, 2));
 
         if (mensajes.length === 0) {
           continue;
         }
 
-        await procesarMensajes(mensajes, contactos);
+        await procesarMensajes({
+          mensajes,
+          contactos,
+          metadata,
+        });
       }
     }
 
@@ -77,7 +87,30 @@ export async function POST(req: Request) {
   }
 }
 
-async function procesarMensajes(mensajes: any[], contactos: any[]) {
+type ProcesarMensajesParams = {
+  mensajes: any[];
+  contactos: any[];
+  metadata?: {
+    display_phone_number?: string;
+    phone_number_id?: string;
+  } | null;
+};
+
+async function procesarMensajes({
+  mensajes,
+  contactos,
+  metadata,
+}: ProcesarMensajesParams) {
+  const phoneNumberId =
+    typeof metadata?.phone_number_id === "string"
+      ? metadata.phone_number_id
+      : null;
+
+  const numeroDestino =
+    typeof metadata?.display_phone_number === "string"
+      ? metadata.display_phone_number
+      : null;
+
   for (const mensaje of mensajes) {
     try {
       const telefono = mensaje?.from ?? null;
@@ -87,6 +120,14 @@ async function procesarMensajes(mensajes: any[], contactos: any[]) {
 
       if (!telefono) {
         console.warn("Mensaje ignorado por no traer teléfono:", mensaje);
+        continue;
+      }
+
+      if (!phoneNumberId) {
+        console.warn("Mensaje ignorado porque no llegó phone_number_id en metadata:", {
+          mensaje,
+          metadata,
+        });
         continue;
       }
 
@@ -188,6 +229,8 @@ async function procesarMensajes(mensajes: any[], contactos: any[]) {
         mimeType,
         mediaId,
         fechaMensaje,
+        phoneNumberId,
+        numeroDestino,
       });
 
       const resultado = await guardarMensajeEntrante({
@@ -200,6 +243,8 @@ async function procesarMensajes(mensajes: any[], contactos: any[]) {
         mimeType,
         mediaId,
         fechaMensaje,
+        phoneNumberId,
+        numeroDestino,
       });
 
       if (resultado?.duplicado) {

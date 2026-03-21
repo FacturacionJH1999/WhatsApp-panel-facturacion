@@ -11,6 +11,8 @@ type GuardarMensajeEntranteParams = {
   mimeType?: string | null;
   mediaId?: string | null;
   fechaMensaje?: string | null;
+  phoneNumberId: string;
+  numeroDestino?: string | null;
 };
 
 type GuardarMensajeEntranteResultado = {
@@ -40,9 +42,12 @@ export async function guardarMensajeEntrante({
   mimeType,
   mediaId,
   fechaMensaje,
+  phoneNumberId,
+  numeroDestino,
 }: GuardarMensajeEntranteParams): Promise<GuardarMensajeEntranteResultado> {
   let contactoId = "";
   let conversacionId = "";
+  let numeroWhatsappId = "";
 
   const fechaFinal = fechaMensaje ?? new Date().toISOString();
   const textoNormalizado = normalizarTexto(texto);
@@ -60,7 +65,34 @@ export async function guardarMensajeEntrante({
     mediaId: mediaId ?? null,
     fechaFinal,
     estadoMedia,
+    phoneNumberId,
+    numeroDestino: numeroDestino ?? null,
   });
+
+  const { data: numeroWhatsapp, error: errorNumeroWhatsapp } = await supabaseAdmin
+    .from("numeros_whatsapp")
+    .select("id, phone_number_id, numero, activo")
+    .eq("phone_number_id", phoneNumberId)
+    .maybeSingle();
+
+  if (errorNumeroWhatsapp) {
+    console.error("Error buscando número de WhatsApp:", errorNumeroWhatsapp);
+    throw errorNumeroWhatsapp;
+  }
+
+  if (!numeroWhatsapp?.id) {
+    throw new Error(
+      `No existe un registro en numeros_whatsapp para phone_number_id=${phoneNumberId}`
+    );
+  }
+
+  if (!numeroWhatsapp.activo) {
+    throw new Error(
+      `El número de WhatsApp con phone_number_id=${phoneNumberId} está inactivo`
+    );
+  }
+
+  numeroWhatsappId = numeroWhatsapp.id;
 
   if (waMessageId) {
     const { data: mensajeExistente, error: errorMensajeExistente } =
@@ -122,14 +154,15 @@ export async function guardarMensajeEntrante({
       }
     }
   } else {
-    const { data: nuevoContacto, error: errorNuevoContacto } = await supabaseAdmin
-      .from("contactos")
-      .insert({
-        telefono,
-        nombre: nombre ?? null,
-      })
-      .select("id")
-      .single();
+    const { data: nuevoContacto, error: errorNuevoContacto } =
+      await supabaseAdmin
+        .from("contactos")
+        .insert({
+          telefono,
+          nombre: nombre ?? null,
+        })
+        .select("id")
+        .single();
 
     if (errorNuevoContacto) {
       console.error("Error creando contacto:", errorNuevoContacto);
@@ -148,6 +181,7 @@ export async function guardarMensajeEntrante({
       .from("conversaciones")
       .select("id")
       .eq("contacto_id", contactoId)
+      .eq("numero_whatsapp_id", numeroWhatsappId)
       .maybeSingle();
 
   if (errorConversacionBusqueda) {
@@ -163,6 +197,8 @@ export async function guardarMensajeEntrante({
         .from("conversaciones")
         .insert({
           contacto_id: contactoId,
+          numero_whatsapp_id: numeroWhatsappId,
+          ultima_actividad: fechaFinal,
         })
         .select("id")
         .single();
@@ -181,6 +217,7 @@ export async function guardarMensajeEntrante({
 
   const payloadMensaje = {
     conversacion_id: conversacionId,
+    numero_whatsapp_id: numeroWhatsappId,
     wa_message_id: waMessageId ?? null,
     direccion: "entrante" as const,
     tipo,
@@ -275,6 +312,7 @@ export async function guardarMensajeEntrante({
     duplicado: false,
     mensajeId: nuevoMensaje?.id ?? null,
     conversacionId,
+    numeroWhatsappId,
   });
 
   return {

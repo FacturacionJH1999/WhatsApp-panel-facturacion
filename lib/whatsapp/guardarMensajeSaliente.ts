@@ -2,105 +2,106 @@ import { supabaseAdmin } from "../supabaseAdmin";
 
 type GuardarMensajeSalienteParams = {
   telefono: string;
-  texto: string;
+  conversacionId: string;
+  numeroWhatsappId: string;
+  texto?: string | null;
   waMessageId?: string | null;
   fechaMensaje?: string | null;
-  tipo?: string;
+  tipo: "text" | "image" | "video" | "document";
   mimeType?: string | null;
   nombreArchivo?: string | null;
   mediaId?: string | null;
 };
 
+function normalizarTexto(texto: string | null | undefined) {
+  if (typeof texto !== "string") return null;
+  const limpio = texto.trim();
+  return limpio.length > 0 ? limpio : null;
+}
+
+function calcularEstadoMedia(tipo: string) {
+  const tiposConMedia = new Set(["image", "document", "video"]);
+  return tiposConMedia.has(tipo) ? "pendiente" : "no_aplica";
+}
+
 export async function guardarMensajeSaliente({
   telefono,
+  conversacionId,
+  numeroWhatsappId,
   texto,
   waMessageId,
   fechaMensaje,
-  tipo = "text",
-  mimeType = null,
-  nombreArchivo = null,
-  mediaId = null,
+  tipo,
+  mimeType,
+  nombreArchivo,
+  mediaId,
 }: GuardarMensajeSalienteParams) {
-  let contactoId = "";
-  let conversacionId = "";
-
   const fechaFinal = fechaMensaje ?? new Date().toISOString();
+  const textoNormalizado = normalizarTexto(texto);
+  const estadoMedia = calcularEstadoMedia(tipo);
 
-  const { data: contactoExistente, error: errorContactoBusqueda } = await supabaseAdmin
-    .from("contactos")
-    .select("id")
-    .eq("telefono", telefono)
-    .maybeSingle();
-
-  if (errorContactoBusqueda) throw errorContactoBusqueda;
-
-  if (contactoExistente?.id) {
-    contactoId = contactoExistente.id;
-  } else {
-    const { data: nuevoContacto, error: errorNuevoContacto } = await supabaseAdmin
-      .from("contactos")
-      .insert({
-        telefono,
-        nombre: null,
-      })
-      .select("id")
-      .single();
-
-    if (errorNuevoContacto) throw errorNuevoContacto;
-    if (!nuevoContacto?.id) throw new Error("No se pudo crear el contacto");
-
-    contactoId = nuevoContacto.id;
-  }
-
-  const { data: conversacionExistente, error: errorConversacionBusqueda } = await supabaseAdmin
-    .from("conversaciones")
-    .select("id")
-    .eq("contacto_id", contactoId)
-    .maybeSingle();
-
-  if (errorConversacionBusqueda) throw errorConversacionBusqueda;
-
-  if (conversacionExistente?.id) {
-    conversacionId = conversacionExistente.id;
-  } else {
-    const { data: nuevaConversacion, error: errorNuevaConversacion } = await supabaseAdmin
-      .from("conversaciones")
-      .insert({
-        contacto_id: contactoId,
-      })
-      .select("id")
-      .single();
-
-    if (errorNuevaConversacion) throw errorNuevaConversacion;
-    if (!nuevaConversacion?.id) throw new Error("No se pudo crear la conversación");
-
-    conversacionId = nuevaConversacion.id;
-  }
-
-  if (waMessageId) {
-    const { data: mensajeExistente, error: errorMensajeExistente } = await supabaseAdmin
-      .from("mensajes")
-      .select("id")
-      .eq("wa_message_id", waMessageId)
-      .maybeSingle();
-
-    if (errorMensajeExistente) throw errorMensajeExistente;
-    if (mensajeExistente?.id) return;
-  }
-
-  const { error: errorMensaje } = await supabaseAdmin.from("mensajes").insert({
-    conversacion_id: conversacionId,
-    wa_message_id: waMessageId ?? null,
-    direccion: "saliente",
+  console.log("guardarMensajeSaliente() inicio:", {
+    telefono,
+    conversacionId,
+    numeroWhatsappId,
+    textoOriginal: texto ?? null,
+    textoNormalizado,
+    waMessageId: waMessageId ?? null,
+    fechaFinal,
     tipo,
-    texto,
-    nombre_archivo: nombreArchivo,
-    mime_type: mimeType,
-    media_id: mediaId,
-    fecha_mensaje: fechaFinal,
+    mimeType: mimeType ?? null,
+    nombreArchivo: nombreArchivo ?? null,
+    mediaId: mediaId ?? null,
+    estadoMedia,
   });
 
-  if (errorMensaje) throw errorMensaje;
+  const { data: conversacion, error: errorConversacion } = await supabaseAdmin
+    .from("conversaciones")
+    .select("id, contacto_id, numero_whatsapp_id")
+    .eq("id", conversacionId)
+    .maybeSingle();
+
+  if (errorConversacion) {
+    console.error("Error buscando conversación:", errorConversacion);
+    throw errorConversacion;
+  }
+
+  if (!conversacion?.id) {
+    throw new Error("La conversación indicada no existe");
+  }
+
+  if (conversacion.numero_whatsapp_id !== numeroWhatsappId) {
+    throw new Error(
+      "La conversación no coincide con el numero_whatsapp_id enviado"
+    );
+  }
+
+  const payloadMensaje = {
+    conversacion_id: conversacionId,
+    numero_whatsapp_id: numeroWhatsappId,
+    wa_message_id: waMessageId ?? null,
+    direccion: "saliente" as const,
+    tipo,
+    texto: textoNormalizado,
+    nombre_archivo: nombreArchivo ?? null,
+    mime_type: mimeType ?? null,
+    media_id: mediaId ?? null,
+    fecha_mensaje: fechaFinal,
+    estado_media: estadoMedia,
+  };
+
+  console.log("Insertando mensaje saliente en Supabase:", payloadMensaje);
+
+  const { data: nuevoMensaje, error: errorNuevoMensaje } = await supabaseAdmin
+    .from("mensajes")
+    .insert(payloadMensaje)
+    .select("id")
+    .single();
+
+  if (errorNuevoMensaje) {
+    console.error("Error guardando mensaje saliente:", errorNuevoMensaje);
+    throw errorNuevoMensaje;
+  }
 
   const { error: errorActualizarConversacion } = await supabaseAdmin
     .from("conversaciones")
@@ -109,5 +110,23 @@ export async function guardarMensajeSaliente({
     })
     .eq("id", conversacionId);
 
-  if (errorActualizarConversacion) throw errorActualizarConversacion;
+  if (errorActualizarConversacion) {
+    console.error(
+      "Error actualizando ultima_actividad de conversación:",
+      errorActualizarConversacion
+    );
+    throw errorActualizarConversacion;
+  }
+
+  console.log("guardarMensajeSaliente() completado:", {
+    mensajeId: nuevoMensaje?.id ?? null,
+    conversacionId,
+    numeroWhatsappId,
+  });
+
+  return {
+    ok: true,
+    mensajeId: nuevoMensaje?.id ?? null,
+    conversacionId,
+  };
 }
