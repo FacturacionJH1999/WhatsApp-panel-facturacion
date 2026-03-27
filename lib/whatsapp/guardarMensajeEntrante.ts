@@ -10,6 +10,7 @@ type GuardarMensajeEntranteParams = {
   nombreArchivo?: string | null;
   mimeType?: string | null;
   mediaId?: string | null;
+  mediaUrl?: string | null;
   fechaMensaje?: string | null;
   phoneNumberId: string;
   numeroDestino?: string | null;
@@ -41,6 +42,7 @@ export async function guardarMensajeEntrante({
   nombreArchivo,
   mimeType,
   mediaId,
+  mediaUrl,
   fechaMensaje,
   phoneNumberId,
   numeroDestino,
@@ -63,17 +65,19 @@ export async function guardarMensajeEntrante({
     nombreArchivo: nombreArchivo ?? null,
     mimeType: mimeType ?? null,
     mediaId: mediaId ?? null,
+    mediaUrl: mediaUrl ?? null,
     fechaFinal,
     estadoMedia,
     phoneNumberId,
     numeroDestino: numeroDestino ?? null,
   });
 
-  const { data: numeroWhatsapp, error: errorNumeroWhatsapp } = await supabaseAdmin
-    .from("numeros_whatsapp")
-    .select("id, phone_number_id, numero, activo")
-    .eq("phone_number_id", phoneNumberId)
-    .maybeSingle();
+  const { data: numeroWhatsapp, error: errorNumeroWhatsapp } =
+    await supabaseAdmin
+      .from("numeros_whatsapp")
+      .select("id, phone_number_id, numero, activo")
+      .eq("phone_number_id", phoneNumberId)
+      .maybeSingle();
 
   if (errorNumeroWhatsapp) {
     console.error("Error buscando número de WhatsApp:", errorNumeroWhatsapp);
@@ -305,6 +309,7 @@ export async function guardarMensajeEntrante({
       mediaId,
       mimeType: mimeType ?? null,
       mensajeId: nuevoMensaje.id,
+      mediaUrl: mediaUrl ?? null,
     });
   }
 

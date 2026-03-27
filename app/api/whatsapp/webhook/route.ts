@@ -61,7 +61,10 @@ export async function POST(req: Request) {
         const metadata = value?.metadata ?? null;
 
         console.log("Change detectado:", JSON.stringify(change, null, 2));
-        console.log("Mensajes extraídos de change:", JSON.stringify(mensajes, null, 2));
+        console.log(
+          "Mensajes extraídos de change:",
+          JSON.stringify(mensajes, null, 2)
+        );
         console.log("Metadata detectada:", JSON.stringify(metadata, null, 2));
 
         if (mensajes.length === 0) {
@@ -115,7 +118,8 @@ async function procesarMensajes({
     try {
       const telefono = mensaje?.from ?? null;
       const waMessageId = mensaje?.id ?? null;
-      const tipo = typeof mensaje?.type === "string" ? mensaje.type : "desconocido";
+      const tipo =
+        typeof mensaje?.type === "string" ? mensaje.type : "desconocido";
       const fechaMensaje = convertirFechaMensaje(mensaje?.timestamp);
 
       if (!telefono) {
@@ -124,10 +128,13 @@ async function procesarMensajes({
       }
 
       if (!phoneNumberId) {
-        console.warn("Mensaje ignorado porque no llegó phone_number_id en metadata:", {
-          mensaje,
-          metadata,
-        });
+        console.warn(
+          "Mensaje ignorado porque no llegó phone_number_id en metadata:",
+          {
+            mensaje,
+            metadata,
+          }
+        );
         continue;
       }
 
@@ -144,12 +151,11 @@ async function procesarMensajes({
       let nombreArchivo: string | null = null;
       let mimeType: string | null = null;
       let mediaId: string | null = null;
+      let mediaUrl: string | null = null;
 
       if (tipo === "text") {
         texto =
-          typeof mensaje?.text?.body === "string"
-            ? mensaje.text.body
-            : null;
+          typeof mensaje?.text?.body === "string" ? mensaje.text.body : null;
       }
 
       if (tipo === "image") {
@@ -159,9 +165,10 @@ async function procesarMensajes({
             : null;
 
         mediaId =
-          typeof mensaje?.image?.id === "string"
-            ? mensaje.image.id
-            : null;
+          typeof mensaje?.image?.id === "string" ? mensaje.image.id : null;
+
+        mediaUrl =
+          typeof mensaje?.image?.url === "string" ? mensaje.image.url : null;
 
         if (
           typeof mensaje?.image?.caption === "string" &&
@@ -186,6 +193,11 @@ async function procesarMensajes({
           typeof mensaje?.document?.id === "string"
             ? mensaje.document.id
             : null;
+
+        mediaUrl =
+          typeof mensaje?.document?.url === "string"
+            ? mensaje.document.url
+            : null;
       }
 
       if (tipo === "video") {
@@ -195,9 +207,10 @@ async function procesarMensajes({
             : null;
 
         mediaId =
-          typeof mensaje?.video?.id === "string"
-            ? mensaje.video.id
-            : null;
+          typeof mensaje?.video?.id === "string" ? mensaje.video.id : null;
+
+        mediaUrl =
+          typeof mensaje?.video?.url === "string" ? mensaje.video.url : null;
 
         if (
           typeof mensaje?.video?.caption === "string" &&
@@ -214,9 +227,10 @@ async function procesarMensajes({
             : null;
 
         mediaId =
-          typeof mensaje?.audio?.id === "string"
-            ? mensaje.audio.id
-            : null;
+          typeof mensaje?.audio?.id === "string" ? mensaje.audio.id : null;
+
+        mediaUrl =
+          typeof mensaje?.audio?.url === "string" ? mensaje.audio.url : null;
       }
 
       console.log("Procesando mensaje individual:", {
@@ -228,6 +242,7 @@ async function procesarMensajes({
         nombreArchivo,
         mimeType,
         mediaId,
+        mediaUrl,
         fechaMensaje,
         phoneNumberId,
         numeroDestino,
@@ -242,6 +257,7 @@ async function procesarMensajes({
         nombreArchivo,
         mimeType,
         mediaId,
+        mediaUrl,
         fechaMensaje,
         phoneNumberId,
         numeroDestino,

@@ -1,44 +1,63 @@
 import { supabaseAdmin } from "../supabaseAdmin";
 
+type DescargarYGuardarMediaParams = {
+  mediaId: string;
+  mimeType: string | null;
+  mensajeId: string;
+  mediaUrl?: string | null;
+};
+
+function normalizarApiKey(valor: string | undefined) {
+  return valor?.replace(/\s+/g, "").trim() ?? "";
+}
+
 export async function descargarYGuardarMedia({
   mediaId,
   mimeType,
   mensajeId,
-}: {
-  mediaId: string;
-  mimeType: string | null;
-  mensajeId: string;
-}) {
+  mediaUrl,
+}: DescargarYGuardarMediaParams) {
   try {
-    const apiKey = process.env.D360_API_KEY;
+    const apiKey = normalizarApiKey(process.env.D360_API_KEY);
 
     if (!apiKey) {
       console.error("Falta D360_API_KEY");
       return;
     }
 
-    const infoResponse = await fetch(`https://waba-v2.360dialog.io/${mediaId}`, {
-      headers: {
-        "D360-API-KEY": apiKey,
-      },
-    });
+    let downloadUrl: string | null = mediaUrl?.trim() || null;
 
-    if (!infoResponse.ok) {
-      console.error("Error obteniendo media info:", infoResponse.status);
-      return;
+    if (!downloadUrl) {
+      const infoResponse = await fetch(`https://waba-v2.360dialog.io/${mediaId}`, {
+        headers: {
+          "D360-API-KEY": apiKey,
+        },
+      });
+
+      if (!infoResponse.ok) {
+        const bodyError = await infoResponse.text().catch(() => "");
+        console.error(
+          "Error obteniendo media info:",
+          infoResponse.status,
+          bodyError
+        );
+        return;
+      }
+
+      const info = await infoResponse.json();
+
+      if (!info?.url) {
+        console.error("Media sin URL");
+        return;
+      }
+
+      downloadUrl = info.url;
     }
 
-    const info = await infoResponse.json();
-
-    if (!info?.url) {
-      console.error("Media sin URL");
+    if (!downloadUrl) {
+      console.error("No se pudo resolver downloadUrl para la media");
       return;
     }
-
-    const downloadUrl = info.url.replace(
-      "https://lookaside.fbsbx.com",
-      "https://waba-v2.360dialog.io"
-    );
 
     const mediaResponse = await fetch(downloadUrl, {
       headers: {
@@ -47,7 +66,8 @@ export async function descargarYGuardarMedia({
     });
 
     if (!mediaResponse.ok) {
-      console.error("Error descargando media:", mediaResponse.status);
+      const bodyError = await mediaResponse.text().catch(() => "");
+      console.error("Error descargando media:", mediaResponse.status, bodyError);
       return;
     }
 
@@ -85,14 +105,18 @@ export async function descargarYGuardarMedia({
       .eq("id", mensajeId);
 
     if (errorActualizarMensaje) {
-      console.error("Error actualizando mensaje con media:", errorActualizarMensaje);
+      console.error(
+        "Error actualizando mensaje con media:",
+        errorActualizarMensaje
+      );
       return;
     }
 
-    console.log("Media guardado:", {
+    console.log("Media guardada correctamente:", {
       mensajeId,
       mediaId,
       storagePath,
+      usoUrlDirectaWebhook: Boolean(mediaUrl),
     });
   } catch (error) {
     console.error("Error guardando media:", error);
