@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { requireUser } from "@/lib/auth/requireUser";
+import { AutoRefreshHome } from "./AutoRefreshHome";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -404,6 +405,8 @@ export default async function Home({
 
   return (
     <main className="min-h-screen bg-neutral-100">
+      <AutoRefreshHome intervaloMs={3000} />
+
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col md:flex-row">
         <aside className="w-full border-r border-neutral-200 bg-white md:w-80">
           <div className="border-b border-neutral-200 p-4">
