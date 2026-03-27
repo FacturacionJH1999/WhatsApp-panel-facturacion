@@ -11,6 +11,13 @@ function normalizarApiKey(valor: string | undefined) {
   return valor?.replace(/\s+/g, "").trim() ?? "";
 }
 
+function normalizarUrlDescarga(url: string) {
+  return url.replace(
+    "https://lookaside.fbsbx.com",
+    "https://waba-v2.360dialog.io"
+  );
+}
+
 export async function descargarYGuardarMedia({
   mediaId,
   mimeType,
@@ -58,6 +65,15 @@ export async function descargarYGuardarMedia({
       console.error("No se pudo resolver downloadUrl para la media");
       return;
     }
+
+    downloadUrl = normalizarUrlDescarga(downloadUrl);
+
+    console.log("Descargando media:", {
+      mensajeId,
+      mediaId,
+      downloadUrl,
+      usoUrlDirectaWebhook: Boolean(mediaUrl),
+    });
 
     const mediaResponse = await fetch(downloadUrl, {
       headers: {
