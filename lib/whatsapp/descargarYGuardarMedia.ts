@@ -11,11 +11,39 @@ function normalizarApiKey(valor: string | undefined) {
   return valor?.replace(/\s+/g, "").trim() ?? "";
 }
 
+function obtenerApiKey360() {
+  const apiKeyRaw = process.env.D360_API_KEY;
+  const apiKey = normalizarApiKey(apiKeyRaw);
+
+  if (!apiKey) {
+    throw new Error("Falta D360_API_KEY");
+  }
+
+  return apiKey;
+}
+
 function normalizarUrlDescarga(url: string) {
   return url.replace(
     "https://lookaside.fbsbx.com",
     "https://waba-v2.360dialog.io"
   );
+}
+
+function obtenerExtensionDesdeMimeType(mimeType: string | null) {
+  if (!mimeType) return "bin";
+
+  const mapaExtensiones: Record<string, string> = {
+    "image/jpeg": "jpg",
+    "image/jpg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "video/mp4": "mp4",
+    "audio/ogg": "ogg",
+    "audio/mpeg": "mp3",
+    "application/pdf": "pdf",
+  };
+
+  return mapaExtensiones[mimeType] ?? mimeType.split("/")[1] ?? "bin";
 }
 
 export async function descargarYGuardarMedia({
@@ -25,14 +53,17 @@ export async function descargarYGuardarMedia({
   mediaUrl,
 }: DescargarYGuardarMediaParams) {
   try {
-    const apiKey = normalizarApiKey(process.env.D360_API_KEY);
-
-    if (!apiKey) {
-      console.error("Falta D360_API_KEY");
-      return;
-    }
+    const apiKey = obtenerApiKey360();
 
     let downloadUrl: string | null = mediaUrl?.trim() || null;
+
+    console.log("D360 API key cargada para descarga", {
+      existe: Boolean(apiKey),
+      longitud: apiKey.length,
+      contieneSaltos: /\r|\n/.test(apiKey),
+      inicio: apiKey.slice(0, 6),
+      fin: apiKey.slice(-6),
+    });
 
     if (!downloadUrl) {
       const infoResponse = await fetch(`https://waba-v2.360dialog.io/${mediaId}`, {
@@ -90,7 +121,7 @@ export async function descargarYGuardarMedia({
     const buffer = await mediaResponse.arrayBuffer();
     const fileBuffer = Buffer.from(buffer);
 
-    const extension = mimeType?.split("/")[1] ?? "bin";
+    const extension = obtenerExtensionDesdeMimeType(mimeType);
     const storagePath = `whatsapp/${mensajeId}.${extension}`;
 
     const { error: uploadError } = await supabaseAdmin.storage
