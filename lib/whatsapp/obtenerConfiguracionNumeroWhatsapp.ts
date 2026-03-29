@@ -17,16 +17,14 @@ export async function obtenerConfiguracionNumeroWhatsapp({
 }: ObtenerConfiguracionNumeroWhatsappParams) {
   let query = supabaseAdmin
     .from("numeros_whatsapp")
-    .select(
-      "id, nombre, display_phone_number, phone_number_id, api_key, destino_reenvio, activo"
-    );
+    .select("id, numero, phone_number_id, api_key, destino_reenvio, activo");
 
   if (numeroWhatsappId) {
     query = query.eq("id", numeroWhatsappId);
   } else if (phoneNumberId) {
     query = query.eq("phone_number_id", phoneNumberId);
   } else if (numeroDestino) {
-    query = query.eq("display_phone_number", numeroDestino);
+    query = query.eq("numero", numeroDestino);
   } else {
     throw new Error(
       "Debes enviar numeroWhatsappId, phoneNumberId o numeroDestino"
@@ -53,14 +51,13 @@ export async function obtenerConfiguracionNumeroWhatsapp({
 
   if (!apiKey) {
     throw new Error(
-      `El número ${data.display_phone_number ?? data.phone_number_id} no tiene api_key configurada`
+      `El número ${data.numero ?? data.phone_number_id} no tiene api_key configurada`
     );
   }
 
   return {
     id: data.id as string,
-    nombre: (data.nombre as string | null) ?? null,
-    displayPhoneNumber: (data.display_phone_number as string | null) ?? null,
+    numero: (data.numero as string | null) ?? null,
     phoneNumberId: (data.phone_number_id as string | null) ?? null,
     apiKey,
     destinoReenvio: (data.destino_reenvio as string | null) ?? null,

@@ -65,7 +65,7 @@ export async function descargarYGuardarMedia({
 
     console.log("D360 API key cargada para descarga", {
       numeroWhatsappId: configNumero.id,
-      displayPhoneNumber: configNumero.displayPhoneNumber,
+      numero: configNumero.numero,
       phoneNumberId: configNumero.phoneNumberId,
       existe: Boolean(apiKey),
       longitud: apiKey.length,
@@ -119,7 +119,7 @@ export async function descargarYGuardarMedia({
       downloadUrl,
       usoUrlDirectaWebhook: Boolean(mediaUrl),
       numeroWhatsappId: configNumero.id,
-      displayPhoneNumber: configNumero.displayPhoneNumber,
+      numero: configNumero.numero,
     });
 
     const mediaResponse = await fetch(downloadUrl, {
@@ -183,7 +183,7 @@ export async function descargarYGuardarMedia({
       storagePath,
       usoUrlDirectaWebhook: Boolean(mediaUrl),
       numeroWhatsappId: configNumero.id,
-      displayPhoneNumber: configNumero.displayPhoneNumber,
+      numero: configNumero.numero,
     });
   } catch (error) {
     console.error("Error guardando media:", error);

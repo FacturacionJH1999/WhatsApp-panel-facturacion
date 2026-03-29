@@ -28,7 +28,7 @@ export async function reenviarArchivoAlPapa({
 
     console.log("D360 API key cargada para reenvío", {
       numeroWhatsappId: configNumero.id,
-      displayPhoneNumber: configNumero.displayPhoneNumber,
+      numero: configNumero.numero,
       phoneNumberId: configNumero.phoneNumberId,
       existe: Boolean(apiKey),
       longitud: apiKey.length,
@@ -123,7 +123,7 @@ export async function reenviarArchivoAlPapa({
 
     console.log("Archivo reenviado correctamente al número destino", {
       numeroWhatsappId: configNumero.id,
-      displayPhoneNumber: configNumero.displayPhoneNumber,
+      numero: configNumero.numero,
       destino,
     });
   } catch (error) {
