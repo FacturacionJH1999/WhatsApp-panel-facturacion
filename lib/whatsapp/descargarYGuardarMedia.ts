@@ -1,26 +1,14 @@
 import { supabaseAdmin } from "../supabaseAdmin";
+import { obtenerConfiguracionNumeroWhatsapp } from "./obtenerConfiguracionNumeroWhatsapp";
 
 type DescargarYGuardarMediaParams = {
   mediaId: string;
   mimeType: string | null;
   mensajeId: string;
   mediaUrl?: string | null;
+  numeroWhatsappId?: string | null;
+  phoneNumberId?: string | null;
 };
-
-function normalizarApiKey(valor: string | undefined) {
-  return valor?.replace(/\s+/g, "").trim() ?? "";
-}
-
-function obtenerApiKey360() {
-  const apiKeyRaw = process.env.D360_API_KEY;
-  const apiKey = normalizarApiKey(apiKeyRaw);
-
-  if (!apiKey) {
-    throw new Error("Falta D360_API_KEY");
-  }
-
-  return apiKey;
-}
 
 function normalizarUrlDescarga(url: string) {
   return url.replace(
@@ -46,24 +34,47 @@ function obtenerExtensionDesdeMimeType(mimeType: string | null) {
   return mapaExtensiones[mimeType] ?? mimeType.split("/")[1] ?? "bin";
 }
 
+async function marcarMediaComoError(mensajeId: string) {
+  const { error } = await supabaseAdmin
+    .from("mensajes")
+    .update({
+      estado_media: "error",
+    })
+    .eq("id", mensajeId);
+
+  if (error) {
+    console.error("Error marcando media como error:", error);
+  }
+}
+
 export async function descargarYGuardarMedia({
   mediaId,
   mimeType,
   mensajeId,
   mediaUrl,
+  numeroWhatsappId,
+  phoneNumberId,
 }: DescargarYGuardarMediaParams) {
   try {
-    const apiKey = obtenerApiKey360();
+    const configNumero = await obtenerConfiguracionNumeroWhatsapp({
+      numeroWhatsappId,
+      phoneNumberId,
+    });
 
-    let downloadUrl: string | null = mediaUrl?.trim() || null;
+    const apiKey = configNumero.apiKey;
 
     console.log("D360 API key cargada para descarga", {
+      numeroWhatsappId: configNumero.id,
+      displayPhoneNumber: configNumero.displayPhoneNumber,
+      phoneNumberId: configNumero.phoneNumberId,
       existe: Boolean(apiKey),
       longitud: apiKey.length,
       contieneSaltos: /\r|\n/.test(apiKey),
       inicio: apiKey.slice(0, 6),
       fin: apiKey.slice(-6),
     });
+
+    let downloadUrl: string | null = mediaUrl?.trim() || null;
 
     if (!downloadUrl) {
       const infoResponse = await fetch(`https://waba-v2.360dialog.io/${mediaId}`, {
@@ -79,6 +90,7 @@ export async function descargarYGuardarMedia({
           infoResponse.status,
           bodyError
         );
+        await marcarMediaComoError(mensajeId);
         return;
       }
 
@@ -86,6 +98,7 @@ export async function descargarYGuardarMedia({
 
       if (!info?.url) {
         console.error("Media sin URL");
+        await marcarMediaComoError(mensajeId);
         return;
       }
 
@@ -94,6 +107,7 @@ export async function descargarYGuardarMedia({
 
     if (!downloadUrl) {
       console.error("No se pudo resolver downloadUrl para la media");
+      await marcarMediaComoError(mensajeId);
       return;
     }
 
@@ -104,6 +118,8 @@ export async function descargarYGuardarMedia({
       mediaId,
       downloadUrl,
       usoUrlDirectaWebhook: Boolean(mediaUrl),
+      numeroWhatsappId: configNumero.id,
+      displayPhoneNumber: configNumero.displayPhoneNumber,
     });
 
     const mediaResponse = await fetch(downloadUrl, {
@@ -115,6 +131,7 @@ export async function descargarYGuardarMedia({
     if (!mediaResponse.ok) {
       const bodyError = await mediaResponse.text().catch(() => "");
       console.error("Error descargando media:", mediaResponse.status, bodyError);
+      await marcarMediaComoError(mensajeId);
       return;
     }
 
@@ -133,6 +150,7 @@ export async function descargarYGuardarMedia({
 
     if (uploadError) {
       console.error("Error subiendo a storage:", uploadError);
+      await marcarMediaComoError(mensajeId);
       return;
     }
 
@@ -164,8 +182,11 @@ export async function descargarYGuardarMedia({
       mediaId,
       storagePath,
       usoUrlDirectaWebhook: Boolean(mediaUrl),
+      numeroWhatsappId: configNumero.id,
+      displayPhoneNumber: configNumero.displayPhoneNumber,
     });
   } catch (error) {
     console.error("Error guardando media:", error);
+    await marcarMediaComoError(mensajeId);
   }
 }

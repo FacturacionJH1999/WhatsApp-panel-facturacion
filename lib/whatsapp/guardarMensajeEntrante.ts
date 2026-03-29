@@ -20,6 +20,7 @@ type GuardarMensajeEntranteResultado = {
   duplicado: boolean;
   mensajeId: string | null;
   conversacionId: string | null;
+  numeroWhatsappId: string | null;
 };
 
 function normalizarTexto(texto: string | null | undefined) {
@@ -102,7 +103,7 @@ export async function guardarMensajeEntrante({
     const { data: mensajeExistente, error: errorMensajeExistente } =
       await supabaseAdmin
         .from("mensajes")
-        .select("id, conversacion_id")
+        .select("id, conversacion_id, numero_whatsapp_id")
         .eq("wa_message_id", waMessageId)
         .maybeSingle();
 
@@ -124,6 +125,7 @@ export async function guardarMensajeEntrante({
         duplicado: true,
         mensajeId: mensajeExistente.id,
         conversacionId: mensajeExistente.conversacion_id ?? null,
+        numeroWhatsappId: mensajeExistente.numero_whatsapp_id ?? null,
       };
     }
   }
@@ -257,7 +259,7 @@ export async function guardarMensajeEntrante({
 
       const { data: mensajeExistente } = await supabaseAdmin
         .from("mensajes")
-        .select("id, conversacion_id")
+        .select("id, conversacion_id, numero_whatsapp_id")
         .eq("wa_message_id", waMessageId)
         .maybeSingle();
 
@@ -265,6 +267,7 @@ export async function guardarMensajeEntrante({
         duplicado: true,
         mensajeId: mensajeExistente?.id ?? null,
         conversacionId: mensajeExistente?.conversacion_id ?? null,
+        numeroWhatsappId: mensajeExistente?.numero_whatsapp_id ?? null,
       };
     }
 
@@ -310,6 +313,8 @@ export async function guardarMensajeEntrante({
       mimeType: mimeType ?? null,
       mensajeId: nuevoMensaje.id,
       mediaUrl: mediaUrl ?? null,
+      numeroWhatsappId,
+      phoneNumberId,
     });
   }
 
@@ -324,5 +329,6 @@ export async function guardarMensajeEntrante({
     duplicado: false,
     mensajeId: nuevoMensaje?.id ?? null,
     conversacionId,
+    numeroWhatsappId,
   };
 }

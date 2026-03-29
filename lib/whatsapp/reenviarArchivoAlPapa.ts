@@ -1,33 +1,12 @@
-function normalizarApiKey(valor: string | undefined) {
-  return valor?.replace(/\s+/g, "").trim() ?? "";
-}
-
-function obtenerApiKey360() {
-  const apiKeyRaw = process.env.D360_API_KEY;
-  const apiKey = normalizarApiKey(apiKeyRaw);
-
-  if (!apiKey) {
-    throw new Error("Falta D360_API_KEY");
-  }
-
-  return apiKey;
-}
-
-function obtenerDestinoFacturas() {
-  const destino = process.env.WHATSAPP_DESTINO_FACTURAS?.trim();
-
-  if (!destino) {
-    throw new Error("Falta WHATSAPP_DESTINO_FACTURAS");
-  }
-
-  return destino;
-}
+import { obtenerConfiguracionNumeroWhatsapp } from "./obtenerConfiguracionNumeroWhatsapp";
 
 type Params = {
   mediaId: string;
   tipo: "image" | "document";
   nombreArchivo?: string | null;
   telefonoCliente?: string | null;
+  numeroWhatsappId?: string | null;
+  phoneNumberId?: string | null;
 };
 
 export async function reenviarArchivoAlPapa({
@@ -35,18 +14,36 @@ export async function reenviarArchivoAlPapa({
   tipo,
   nombreArchivo,
   telefonoCliente,
+  numeroWhatsappId,
+  phoneNumberId,
 }: Params) {
   try {
-    const apiKey = obtenerApiKey360();
-    const destino = obtenerDestinoFacturas();
+    const configNumero = await obtenerConfiguracionNumeroWhatsapp({
+      numeroWhatsappId,
+      phoneNumberId,
+    });
+
+    const apiKey = configNumero.apiKey;
+    const destino = configNumero.destinoReenvio?.trim();
 
     console.log("D360 API key cargada para reenvío", {
+      numeroWhatsappId: configNumero.id,
+      displayPhoneNumber: configNumero.displayPhoneNumber,
+      phoneNumberId: configNumero.phoneNumberId,
       existe: Boolean(apiKey),
       longitud: apiKey.length,
       contieneSaltos: /\r|\n/.test(apiKey),
       inicio: apiKey.slice(0, 6),
       fin: apiKey.slice(-6),
     });
+
+    if (!destino) {
+      console.error(
+        "Falta destino_reenvio para este número de WhatsApp",
+        configNumero
+      );
+      return;
+    }
 
     if (!mediaId) {
       console.error("mediaId vacío, no se puede reenviar");
@@ -124,7 +121,11 @@ export async function reenviarArchivoAlPapa({
       return;
     }
 
-    console.log("Archivo reenviado correctamente al número destino");
+    console.log("Archivo reenviado correctamente al número destino", {
+      numeroWhatsappId: configNumero.id,
+      displayPhoneNumber: configNumero.displayPhoneNumber,
+      destino,
+    });
   } catch (error) {
     console.error("Error reenviando archivo al papá:", error);
   }

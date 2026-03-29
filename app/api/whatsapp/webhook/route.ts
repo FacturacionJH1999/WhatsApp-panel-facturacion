@@ -271,6 +271,8 @@ async function procesarMensajes({
         continue;
       }
 
+      const numeroWhatsappId = resultado?.numeroWhatsappId ?? null;
+
       const esImagen = tipo === "image";
       const esDocumento = tipo === "document";
 
@@ -285,6 +287,8 @@ async function procesarMensajes({
           mediaId,
           tipo: "image",
           telefonoCliente: telefono,
+          numeroWhatsappId,
+          phoneNumberId,
         });
       }
 
@@ -294,6 +298,8 @@ async function procesarMensajes({
           tipo: "document",
           nombreArchivo,
           telefonoCliente: telefono,
+          numeroWhatsappId,
+          phoneNumberId,
         });
       }
     } catch (errorPorMensaje) {
