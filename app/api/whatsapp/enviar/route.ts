@@ -3,7 +3,7 @@ import { guardarMensajeSaliente } from "@/lib/whatsapp/guardarMensajeSaliente";
 import { getUserProfile } from "@/lib/auth/getUserProfile";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-const API_KEY = process.env.D360_API_KEY;
+const API_KEY_GLOBAL = process.env.D360_API_KEY;
 
 type TipoMensajeSaliente = "text" | "image" | "video" | "document";
 
@@ -65,13 +65,6 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!API_KEY) {
-      return NextResponse.json(
-        { ok: false, error: "Falta D360_API_KEY" },
-        { status: 500 }
-      );
-    }
-
     const { data: conversacion, error: errorConversacion } = await supabaseAdmin
       .from("conversaciones")
       .select("id, contacto_id, numero_whatsapp_id")
@@ -107,7 +100,9 @@ export async function POST(req: Request) {
     const { data: numeroWhatsapp, error: errorNumeroWhatsapp } =
       await supabaseAdmin
         .from("numeros_whatsapp")
-        .select("id, phone_number_id, numero, nombre_interno, activo")
+        .select(
+          "id, phone_number_id, numero, nombre_interno, activo, api_key"
+        )
         .eq("id", conversacion.numero_whatsapp_id)
         .maybeSingle();
 
@@ -131,6 +126,22 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { ok: false, error: "El número de WhatsApp está inactivo" },
         { status: 400 }
+      );
+    }
+
+    const apiKey =
+      typeof numeroWhatsapp.api_key === "string" &&
+      numeroWhatsapp.api_key.trim().length > 0
+        ? numeroWhatsapp.api_key.trim()
+        : API_KEY_GLOBAL?.trim();
+
+    if (!apiKey) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "No hay API key configurada para este número de WhatsApp",
+        },
+        { status: 500 }
       );
     }
 
@@ -207,7 +218,7 @@ export async function POST(req: Request) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "D360-API-KEY": API_KEY,
+        "D360-API-KEY": apiKey,
       },
       body: JSON.stringify(payload),
     });
@@ -222,6 +233,9 @@ export async function POST(req: Request) {
         body: textoRespuesta,
         conversacionId,
         numeroWhatsappId: numeroWhatsapp.id,
+        phoneNumberId: numeroWhatsapp.phone_number_id,
+        numero: numeroWhatsapp.numero,
+        tokenTerminacion: apiKey.slice(-6),
       });
 
       return NextResponse.json(
