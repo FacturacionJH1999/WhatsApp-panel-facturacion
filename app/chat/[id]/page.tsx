@@ -38,8 +38,8 @@ type ConversacionDetalle = {
   id: string;
   ultima_actividad: string;
   estado: EstadoConversacion;
-  usuarioAsignadoId: string | null;
-  usuarioAsignadoNombre: string | null;
+  usuariosAsignadosIds: string[];
+  usuariosAsignadosNombres: string[];
   numeroWhatsappId: string | null;
   numeroWhatsappNombre: string | null;
   numeroWhatsappTelefono: string | null;
@@ -135,41 +135,54 @@ async function obtenerConversacion(
     numeroWhatsappTelefono = numeroWhatsapp?.numero ?? null;
   }
 
-  const { data: asignacion, error: errorAsignacion } = await supabaseAdmin
+  const { data: asignaciones, error: errorAsignaciones } = await supabaseAdmin
     .from("conversaciones_asignadas")
     .select("usuario_id")
-    .eq("conversacion_id", data.id)
-    .maybeSingle();
+    .eq("conversacion_id", data.id);
 
-  if (errorAsignacion) {
-    console.error("Error cargando asignación:", errorAsignacion);
+  if (errorAsignaciones) {
+    console.error("Error cargando asignaciones:", errorAsignaciones);
   }
 
-  let usuarioAsignadoId: string | null = asignacion?.usuario_id ?? null;
-  let usuarioAsignadoNombre: string | null = null;
+  const usuariosAsignadosIds = Array.from(
+    new Set(
+      (asignaciones ?? [])
+        .map((asignacion) => asignacion.usuario_id)
+        .filter((valor): valor is string => typeof valor === "string" && valor.length > 0)
+    )
+  );
 
-  if (usuarioAsignadoId) {
-    const { data: perfilAsignado, error: errorPerfilAsignado } =
+  let usuariosAsignadosNombres: string[] = [];
+
+  if (usuariosAsignadosIds.length > 0) {
+    const { data: perfilesAsignados, error: errorPerfilesAsignados } =
       await supabaseAdmin
         .from("perfiles")
         .select("id, nombre, email")
-        .eq("id", usuarioAsignadoId)
-        .maybeSingle();
+        .in("id", usuariosAsignadosIds);
 
-    if (errorPerfilAsignado) {
-      console.error("Error cargando perfil asignado:", errorPerfilAsignado);
+    if (errorPerfilesAsignados) {
+      console.error("Error cargando perfiles asignados:", errorPerfilesAsignados);
     }
 
-    usuarioAsignadoNombre =
-      perfilAsignado?.nombre?.trim() || perfilAsignado?.email || null;
+    const mapaPerfiles = new Map(
+      (perfilesAsignados ?? []).map((perfilAsignado) => [
+        perfilAsignado.id,
+        perfilAsignado.nombre?.trim() || perfilAsignado.email || "Usuario",
+      ])
+    );
+
+    usuariosAsignadosNombres = usuariosAsignadosIds
+      .map((usuarioId) => mapaPerfiles.get(usuarioId))
+      .filter((nombre): nombre is string => Boolean(nombre));
   }
 
   return {
     id: data.id,
     ultima_actividad: data.ultima_actividad,
     estado: (data.estado as EstadoConversacion) ?? "nueva",
-    usuarioAsignadoId,
-    usuarioAsignadoNombre,
+    usuariosAsignadosIds,
+    usuariosAsignadosNombres,
     numeroWhatsappId: data.numero_whatsapp_id ?? null,
     numeroWhatsappNombre,
     numeroWhatsappTelefono,
@@ -189,6 +202,7 @@ async function obtenerUsuariosAsignables(): Promise<UsuarioAsignable[]> {
     .from("perfiles")
     .select("id, nombre, email, activo, rol")
     .eq("activo", true)
+    .eq("rol", "empleado")
     .order("nombre", { ascending: true });
 
   if (error) {
@@ -593,9 +607,11 @@ export default async function ChatPage({
                 </p>
 
                 <p className="mt-1 text-[11px] text-neutral-500">
-                  Asignado actualmente:{" "}
+                  Asignados actualmente:{" "}
                   <span className="font-medium text-neutral-700">
-                    {conversacion.usuarioAsignadoNombre || "Sin asignar"}
+                    {conversacion.usuariosAsignadosNombres.length > 0
+                      ? conversacion.usuariosAsignadosNombres.join(", ")
+                      : "Sin asignar"}
                   </span>
                 </p>
               </div>
@@ -605,7 +621,7 @@ export default async function ChatPage({
               {esAdmin ? (
                 <AsignacionConversacionSelector
                   conversacionId={conversacion.id}
-                  usuarioActualId={conversacion.usuarioAsignadoId}
+                  usuariosActualesIds={conversacion.usuariosAsignadosIds}
                   usuarios={usuariosAsignables}
                 />
               ) : null}

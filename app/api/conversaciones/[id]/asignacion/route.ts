@@ -5,7 +5,27 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 type BodyAsignacion = {
   usuarioId?: string | null;
+  usuarioIds?: string[] | null;
 };
+
+function normalizarUsuarioIds(body: BodyAsignacion): string[] {
+  if (Array.isArray(body.usuarioIds)) {
+    return Array.from(
+      new Set(
+        body.usuarioIds
+          .filter((valor): valor is string => typeof valor === "string")
+          .map((valor) => valor.trim())
+          .filter((valor) => valor.length > 0)
+      )
+    );
+  }
+
+  if (typeof body.usuarioId === "string" && body.usuarioId.trim().length > 0) {
+    return [body.usuarioId.trim()];
+  }
+
+  return [];
+}
 
 export async function PATCH(
   request: Request,
@@ -51,10 +71,7 @@ export async function PATCH(
       );
     }
 
-    const usuarioId =
-      typeof body?.usuarioId === "string" && body.usuarioId.trim().length > 0
-        ? body.usuarioId.trim()
-        : null;
+    const usuarioIds = normalizarUsuarioIds(body);
 
     const tieneAcceso = await puedeVerConversacion(
       {
@@ -71,63 +88,67 @@ export async function PATCH(
       );
     }
 
+    if (usuarioIds.length > 0) {
+      const { data: perfilesDestino, error: errorPerfilesDestino } =
+        await supabaseAdmin
+          .from("perfiles")
+          .select("id, activo, rol")
+          .in("id", usuarioIds);
+
+      if (errorPerfilesDestino) {
+        console.error("Error consultando perfiles destino:", errorPerfilesDestino);
+        return NextResponse.json(
+          { ok: false, error: "No se pudo validar los usuarios seleccionados." },
+          { status: 500 }
+        );
+      }
+
+      const perfilesValidos = (perfilesDestino ?? []).filter(
+        (perfilDestino) => perfilDestino.activo && perfilDestino.rol === "empleado"
+      );
+
+      if (perfilesValidos.length !== usuarioIds.length) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error:
+              "Uno o más usuarios seleccionados no son válidos o no son empleados activos.",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     const { error: errorEliminar } = await supabaseAdmin
       .from("conversaciones_asignadas")
       .delete()
       .eq("conversacion_id", conversacionId);
 
     if (errorEliminar) {
-      console.error("Error eliminando asignación previa:", errorEliminar);
+      console.error("Error eliminando asignaciones previas:", errorEliminar);
       return NextResponse.json(
         { ok: false, error: "No se pudo actualizar la asignación." },
         { status: 500 }
       );
     }
 
-    if (!usuarioId) {
+    if (usuarioIds.length === 0) {
       return NextResponse.json({ ok: true });
     }
 
-    const { data: perfilDestino, error: errorPerfilDestino } =
-      await supabaseAdmin
-        .from("perfiles")
-        .select("id, activo, rol")
-        .eq("id", usuarioId)
-        .maybeSingle();
-
-    if (errorPerfilDestino) {
-      console.error("Error consultando perfil destino:", errorPerfilDestino);
-      return NextResponse.json(
-        { ok: false, error: "No se pudo validar el usuario seleccionado." },
-        { status: 500 }
-      );
-    }
-
-    if (!perfilDestino || !perfilDestino.activo) {
-      return NextResponse.json(
-        { ok: false, error: "El usuario seleccionado no es válido." },
-        { status: 400 }
-      );
-    }
-
-    if (perfilDestino.rol !== "empleado") {
-      return NextResponse.json(
-        { ok: false, error: "Solo puedes asignar la conversación a un empleado." },
-        { status: 400 }
-      );
-    }
+    const filasAInsertar = usuarioIds.map((usuarioId) => ({
+      conversacion_id: conversacionId,
+      usuario_id: usuarioId,
+    }));
 
     const { error: errorInsertar } = await supabaseAdmin
       .from("conversaciones_asignadas")
-      .insert({
-        conversacion_id: conversacionId,
-        usuario_id: usuarioId,
-      });
+      .insert(filasAInsertar);
 
     if (errorInsertar) {
-      console.error("Error insertando nueva asignación:", errorInsertar);
+      console.error("Error insertando nuevas asignaciones:", errorInsertar);
       return NextResponse.json(
-        { ok: false, error: "No se pudo guardar la nueva asignación." },
+        { ok: false, error: "No se pudieron guardar las nuevas asignaciones." },
         { status: 500 }
       );
     }
