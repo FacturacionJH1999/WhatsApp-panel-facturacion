@@ -6,6 +6,7 @@ import { AutoRefreshChat } from "./AutoRefreshChat";
 import { AutoScrollChat } from "./AutoScrollChat";
 import { EstadoConversacionSelector } from "./EstadoConversacionSelector";
 import { AsignacionConversacionSelector } from "./AsignacionConversacionSelector";
+import { EditarAliasContacto } from "./EditarAliasContacto";
 import { requireUser } from "@/lib/auth/requireUser";
 import { puedeVerConversacion } from "@/lib/auth/puedeVerConversacion";
 
@@ -41,8 +42,10 @@ type ConversacionDetalle = {
   numeroWhatsappNombre: string | null;
   numeroWhatsappTelefono: string | null;
   contactos: {
+    id: string;
     telefono: string;
     nombre: string | null;
+    alias: string | null;
   } | null;
 };
 
@@ -50,6 +53,27 @@ type UsuarioAsignable = {
   id: string;
   nombre: string;
 };
+
+function obtenerNombreVisibleContacto(
+  contacto:
+    | {
+        id: string;
+        telefono: string;
+        nombre: string | null;
+        alias: string | null;
+      }
+    | null
+    | undefined
+) {
+  if (!contacto) return "Sin nombre";
+
+  return (
+    contacto.alias?.trim() ||
+    contacto.nombre?.trim() ||
+    contacto.telefono ||
+    "Sin nombre"
+  );
+}
 
 async function obtenerConversacion(
   id: string
@@ -82,7 +106,7 @@ async function obtenerConversacion(
 
   const { data: contacto, error: errorContacto } = await supabaseAdmin
     .from("contactos")
-    .select("telefono, nombre")
+    .select("id, telefono, nombre, alias")
     .eq("id", data.contacto_id)
     .maybeSingle();
 
@@ -149,8 +173,10 @@ async function obtenerConversacion(
     numeroWhatsappTelefono,
     contactos: contacto
       ? {
+          id: contacto.id,
           telefono: contacto.telefono,
           nombre: contacto.nombre,
+          alias: contacto.alias,
         }
       : null,
   };
@@ -488,6 +514,9 @@ export default async function ChatPage({
   ]);
 
   const esAdmin = perfil.rol === "admin";
+  const nombreVisibleContacto = obtenerNombreVisibleContacto(
+    conversacion.contactos
+  );
 
   return (
     <main className="h-screen overflow-hidden bg-neutral-100">
@@ -508,13 +537,29 @@ export default async function ChatPage({
 
               <div>
                 <h1 className="text-sm font-semibold text-neutral-900">
-                  {conversacion.contactos?.nombre?.trim() ||
-                    conversacion.contactos?.telefono ||
-                    "Sin nombre"}
+                  {nombreVisibleContacto}
                 </h1>
+
                 <p className="text-xs text-neutral-500">
                   {conversacion.contactos?.telefono || "Sin teléfono"}
                 </p>
+
+                {conversacion.contactos ? (
+                  <EditarAliasContacto
+                    contactoId={conversacion.contactos.id}
+                    aliasActual={conversacion.contactos.alias}
+                    puedeEditar={esAdmin}
+                  />
+                ) : null}
+
+                {conversacion.contactos?.alias?.trim() ? (
+                  <p className="mt-1 text-[11px] text-neutral-500">
+                    Nombre original:
+                    <span className="ml-1 font-medium text-neutral-700">
+                      {conversacion.contactos?.nombre?.trim() || "Sin nombre"}
+                    </span>
+                  </p>
+                ) : null}
 
                 <p className="mt-1 text-[11px] text-neutral-500">
                   Línea:
