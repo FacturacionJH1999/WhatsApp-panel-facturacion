@@ -15,6 +15,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const URL_SUPABASE = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const TIMEZONE_COLOMBIA = "America/Bogota";
 
 type EstadoConversacion = "nueva" | "en_proceso" | "cerrada";
 
@@ -232,10 +233,17 @@ async function obtenerMensajes(conversacionId: string): Promise<Mensaje[]> {
 function formatearHora(fechaIso: string | null) {
   if (!fechaIso) return "";
 
+  const fecha = new Date(fechaIso);
+
+  if (Number.isNaN(fecha.getTime())) {
+    return "";
+  }
+
   return new Intl.DateTimeFormat("es-CO", {
     hour: "numeric",
     minute: "2-digit",
-  }).format(new Date(fechaIso));
+    timeZone: TIMEZONE_COLOMBIA,
+  }).format(fecha);
 }
 
 function obtenerEtiquetaTipoMensaje(mensaje: Mensaje) {
