@@ -267,7 +267,9 @@ async function obtenerConteosEstados(
     };
   }
 
-  let consulta = supabaseAdmin.from("conversaciones").select("id, contacto_id, estado");
+  let consulta = supabaseAdmin
+    .from("conversaciones")
+    .select("id, contacto_id, estado");
 
   if (conversacionesIdsPermitidas) {
     consulta = consulta.in("id", conversacionesIdsPermitidas);
@@ -325,6 +327,7 @@ function formatearFecha(fechaIso: string) {
   const fecha = new Date(fechaIso);
 
   return new Intl.DateTimeFormat("es-CO", {
+    timeZone: "America/Bogota",
     dateStyle: "short",
     timeStyle: "short",
   }).format(fecha);
