@@ -19,9 +19,9 @@ function normalizarTexto(texto: string | null | undefined) {
   return limpio.length > 0 ? limpio : null;
 }
 
-function calcularEstadoMedia(tipo: string) {
-  const tiposConMedia = new Set(["image", "document", "video"]);
-  return tiposConMedia.has(tipo) ? "pendiente" : "no_aplica";
+// 🔥 CORREGIDO: ya no marca "pendiente" para salientes
+function calcularEstadoMedia() {
+  return "no_aplica";
 }
 
 export async function guardarMensajeSaliente({
@@ -38,7 +38,7 @@ export async function guardarMensajeSaliente({
 }: GuardarMensajeSalienteParams) {
   const fechaFinal = fechaMensaje ?? new Date().toISOString();
   const textoNormalizado = normalizarTexto(texto);
-  const estadoMedia = calcularEstadoMedia(tipo);
+  const estadoMedia = calcularEstadoMedia();
 
   console.log("guardarMensajeSaliente() inicio:", {
     telefono,

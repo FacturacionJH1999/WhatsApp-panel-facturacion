@@ -7,6 +7,7 @@ import { AutoScrollChat } from "./AutoScrollChat";
 import { EstadoConversacionSelector } from "./EstadoConversacionSelector";
 import { AsignacionConversacionSelector } from "./AsignacionConversacionSelector";
 import { EditarAliasContacto } from "./EditarAliasContacto";
+import { GaleriaMultimedia, type ItemGaleria } from "./GaleriaMultimedia";
 import { requireUser } from "@/lib/auth/requireUser";
 import { puedeVerConversacion } from "@/lib/auth/puedeVerConversacion";
 
@@ -296,6 +297,28 @@ function obtenerUrlMedia(mensaje: Mensaje) {
   return null;
 }
 
+function construirItemsGaleria(mensajes: Mensaje[]): ItemGaleria[] {
+  return mensajes
+    .filter((mensaje) => mensaje.tipo === "image" || mensaje.tipo === "video")
+    .map((mensaje) => {
+      const url = obtenerUrlMedia(mensaje);
+
+      if (!url) {
+        return null;
+      }
+
+      return {
+        id: mensaje.id,
+        tipo: mensaje.tipo as "image" | "video",
+        url,
+        nombreArchivo: mensaje.nombre_archivo,
+        mimeType: mensaje.mime_type,
+        fechaMensaje: mensaje.fecha_mensaje,
+      };
+    })
+    .filter((item): item is ItemGaleria => Boolean(item));
+}
+
 function esPdf(mensaje: Mensaje) {
   return (
     mensaje.tipo === "document" &&
@@ -343,7 +366,10 @@ function renderEstadoMedia(mensaje: Mensaje, etiqueta: string) {
   );
 }
 
-function obtenerContenidoMensaje(mensaje: Mensaje) {
+function obtenerContenidoMensaje(
+  mensaje: Mensaje,
+  itemsGaleria: ItemGaleria[]
+) {
   const mediaUrl = obtenerUrlMedia(mensaje);
 
   if (mensaje.tipo === "text" && mensaje.texto) {
@@ -356,15 +382,14 @@ function obtenerContenidoMensaje(mensaje: Mensaje) {
     }
 
     return (
-      <div className="mt-2">
-        <a href={mediaUrl} target="_blank" rel="noreferrer">
-          <img
-            src={mediaUrl}
-            alt="Imagen recibida"
-            className="max-h-[420px] w-full rounded-xl border border-black/10 bg-black/5 object-contain"
-          />
-        </a>
-      </div>
+      <GaleriaMultimedia
+        items={itemsGaleria}
+        mensajeActualId={mensaje.id}
+        tipo="image"
+        url={mediaUrl}
+        nombreArchivo={mensaje.nombre_archivo}
+        mimeType={mensaje.mime_type}
+      />
     );
   }
 
@@ -374,26 +399,14 @@ function obtenerContenidoMensaje(mensaje: Mensaje) {
     }
 
     return (
-      <div className="mt-2">
-        <video
-          controls
-          preload="metadata"
-          playsInline
-          className="max-h-[420px] w-full rounded-xl border border-black/10 bg-black"
-        >
-          <source src={mediaUrl} type={mensaje.mime_type ?? "video/mp4"} />
-          Tu navegador no soporta video.
-        </video>
-
-        <a
-          href={mediaUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-2 inline-block text-sm underline"
-        >
-          Abrir video en otra pestaña
-        </a>
-      </div>
+      <GaleriaMultimedia
+        items={itemsGaleria}
+        mensajeActualId={mensaje.id}
+        tipo="video"
+        url={mediaUrl}
+        nombreArchivo={mensaje.nombre_archivo}
+        mimeType={mensaje.mime_type}
+      />
     );
   }
 
@@ -517,6 +530,7 @@ export default async function ChatPage({
   const nombreVisibleContacto = obtenerNombreVisibleContacto(
     conversacion.contactos
   );
+  const itemsGaleria = construirItemsGaleria(mensajes);
 
   return (
     <main className="h-screen overflow-hidden bg-neutral-100">
@@ -636,7 +650,7 @@ export default async function ChatPage({
                         {obtenerEtiquetaTipoMensaje(mensaje)}
                       </p>
 
-                      {obtenerContenidoMensaje(mensaje)}
+                      {obtenerContenidoMensaje(mensaje, itemsGaleria)}
 
                       <p className="mt-2 text-[11px] opacity-60">
                         {formatearHora(mensaje.fecha_mensaje)}

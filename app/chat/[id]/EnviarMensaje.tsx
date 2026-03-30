@@ -18,7 +18,13 @@ export function EnviarMensaje({
   const inputArchivoRef = useRef<HTMLInputElement | null>(null);
 
   async function enviarTexto() {
-    if (!puedeEnviar || !texto.trim() || !telefono || !conversacionId || enviando) {
+    if (
+      !puedeEnviar ||
+      !texto.trim() ||
+      !telefono ||
+      !conversacionId ||
+      enviando
+    ) {
       return;
     }
 
@@ -51,7 +57,6 @@ export function EnviarMensaje({
             data,
           });
         }
-
         return;
       }
 
@@ -66,7 +71,14 @@ export function EnviarMensaje({
 
   async function manejarArchivo(e: React.ChangeEvent<HTMLInputElement>) {
     const archivo = e.target.files?.[0];
-    if (!puedeEnviar || !archivo || !telefono || !conversacionId || enviando) {
+
+    if (
+      !puedeEnviar ||
+      !archivo ||
+      !telefono ||
+      !conversacionId ||
+      enviando
+    ) {
       return;
     }
 
@@ -74,67 +86,33 @@ export function EnviarMensaje({
 
     try {
       const formData = new FormData();
-      formData.append("file", archivo);
+      formData.append("telefono", telefono);
+      formData.append("conversacionId", conversacionId);
+      formData.append("texto", texto.trim());
+      formData.append("archivo", archivo);
 
-      const subida = await fetch("/api/whatsapp/subir-media", {
+      const response = await fetch("/api/whatsapp/enviar", {
         method: "POST",
         body: formData,
       });
 
-      const subidaData = await subida.json().catch(() => null);
+      const data = await response.json().catch(() => null);
 
-      if (!subida.ok || !subidaData?.id) {
-        if (subida.status === 401) {
-          console.error("Sesión no válida:", subidaData);
-        } else if (subida.status === 403) {
-          console.error("Usuario sin permisos para subir archivos:", subidaData);
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.error("Sesión no válida:", data);
+        } else if (response.status === 403) {
+          console.error("Usuario sin permisos para enviar archivos:", data);
         } else {
-          console.error("Error subiendo media:", {
-            status: subida.status,
-            data: subidaData,
+          console.error("Error enviando archivo:", {
+            status: response.status,
+            data,
           });
         }
-
         return;
       }
 
-      let tipo: "image" | "video" | "document" = "document";
-
-      if (archivo.type.startsWith("image/")) tipo = "image";
-      else if (archivo.type.startsWith("video/")) tipo = "video";
-
-      const envio = await fetch("/api/whatsapp/enviar", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          telefono,
-          conversacionId,
-          tipo,
-          mediaId: subidaData.id,
-          mimeType: archivo.type || null,
-          nombreArchivo: archivo.name,
-        }),
-      });
-
-      const envioData = await envio.json().catch(() => null);
-
-      if (!envio.ok) {
-        if (envio.status === 401) {
-          console.error("Sesión no válida:", envioData);
-        } else if (envio.status === 403) {
-          console.error("Usuario sin permisos para enviar archivos:", envioData);
-        } else {
-          console.error("Error enviando media:", {
-            status: envio.status,
-            data: envioData,
-          });
-        }
-
-        return;
-      }
-
+      setTexto("");
       window.location.reload();
     } catch (error) {
       console.error("Error enviando archivo:", error);

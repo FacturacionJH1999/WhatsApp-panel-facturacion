@@ -107,7 +107,10 @@ async function obtenerAsignacionesMapeadas(conversaciones: ConversacionBase[]) {
     .in("conversacion_id", conversacionIds);
 
   if (errorAsignaciones) {
-    console.error("Error cargando asignaciones de conversaciones:", errorAsignaciones);
+    console.error(
+      "Error cargando asignaciones de conversaciones:",
+      errorAsignaciones
+    );
     return new Map<string, string>();
   }
 
@@ -218,13 +221,15 @@ async function obtenerConversaciones(
     return [];
   }
 
-  const conversaciones: ConversacionBase[] = (data ?? []).map((conversacion) => ({
-    id: conversacion.id,
-    contacto_id: conversacion.contacto_id,
-    ultima_actividad: conversacion.ultima_actividad,
-    mensajes_no_leidos: conversacion.mensajes_no_leidos ?? 0,
-    estado: (conversacion.estado as EstadoConversacion) ?? "nueva",
-  }));
+  const conversaciones: ConversacionBase[] = (data ?? []).map(
+    (conversacion) => ({
+      id: conversacion.id,
+      contacto_id: conversacion.contacto_id,
+      ultima_actividad: conversacion.ultima_actividad,
+      mensajes_no_leidos: conversacion.mensajes_no_leidos ?? 0,
+      estado: (conversacion.estado as EstadoConversacion) ?? "nueva",
+    })
+  );
 
   if (conversaciones.length === 0) {
     return [];
@@ -262,9 +267,7 @@ async function obtenerConteosEstados(
     };
   }
 
-  let consulta = supabaseAdmin
-    .from("conversaciones")
-    .select("id, contacto_id, estado");
+  let consulta = supabaseAdmin.from("conversaciones").select("id, contacto_id, estado");
 
   if (conversacionesIdsPermitidas) {
     consulta = consulta.in("id", conversacionesIdsPermitidas);
@@ -438,6 +441,23 @@ export default async function Home({
                 Rol: {perfil.rol}
               </p>
             </div>
+
+            {perfil.rol === "admin" ? (
+              <div className="mt-3 rounded-xl border border-neutral-200 bg-white p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                  Administración
+                </p>
+
+                <div className="mt-3">
+                  <Link
+                    href="/admin/usuarios"
+                    className="inline-flex w-full items-center justify-center rounded-xl border border-black bg-black px-3 py-2 text-sm font-medium text-white transition hover:opacity-90"
+                  >
+                    Administrar usuarios
+                  </Link>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div className="px-3 pt-3">
@@ -516,8 +536,8 @@ export default async function Home({
                   {busqueda.trim()
                     ? "No encontramos resultados para esa búsqueda."
                     : perfil.rol === "admin"
-                      ? "Cuando entren mensajes por WhatsApp aparecerán aquí."
-                      : "Todavía no te han asignado conversaciones."}
+                    ? "Cuando entren mensajes por WhatsApp aparecerán aquí."
+                    : "Todavía no te han asignado conversaciones."}
                 </p>
               </div>
             ) : (
