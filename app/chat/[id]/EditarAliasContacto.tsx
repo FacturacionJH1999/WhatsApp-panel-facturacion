@@ -54,7 +54,7 @@ export function EditarAliasContacto({
       <button
         type="button"
         onClick={() => setEditando(true)}
-        className="mt-2 rounded-lg border border-neutral-200 px-3 py-1.5 text-xs text-neutral-700 hover:bg-neutral-50"
+        className="mt-2 inline-flex items-center rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
       >
         {aliasActual?.trim() ? "Editar apodo" : "Agregar apodo"}
       </button>
@@ -62,40 +62,44 @@ export function EditarAliasContacto({
   }
 
   return (
-    <div className="mt-2 flex flex-col gap-2">
-      <input
-        type="text"
-        value={alias}
-        onChange={(e) => setAlias(e.target.value)}
-        placeholder="Escribe un apodo"
-        className="rounded-lg border border-neutral-200 px-3 py-2 text-sm outline-none"
-      />
+    <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="flex flex-col gap-3">
+        <input
+          type="text"
+          value={alias}
+          onChange={(e) => setAlias(e.target.value)}
+          placeholder="Escribe un apodo"
+          className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-teal-700"
+        />
 
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={guardar}
-          disabled={isPending}
-          className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs text-white disabled:opacity-50"
-        >
-          {isPending ? "Guardando..." : "Guardar"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={guardar}
+            disabled={isPending}
+            className="inline-flex h-10 items-center justify-center rounded-2xl bg-teal-700 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-teal-800 disabled:opacity-50"
+          >
+            {isPending ? "Guardando..." : "Guardar"}
+          </button>
 
-        <button
-          type="button"
-          onClick={() => {
-            setEditando(false);
-            setAlias(aliasActual ?? "");
-            setError("");
-          }}
-          disabled={isPending}
-          className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
-        >
-          Cancelar
-        </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEditando(false);
+              setAlias(aliasActual ?? "");
+              setError("");
+            }}
+            disabled={isPending}
+            className="inline-flex h-10 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-xs font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+        </div>
+
+        {error ? (
+          <p className="text-xs font-medium text-rose-600">{error}</p>
+        ) : null}
       </div>
-
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
     </div>
   );
 }

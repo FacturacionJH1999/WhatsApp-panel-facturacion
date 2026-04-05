@@ -43,14 +43,19 @@ export function AsignacionConversacionSelector({
   const [isPending, startTransition] = useTransition();
 
   const nombresSeleccionados = useMemo(() => {
-    const mapaUsuarios = new Map(usuarios.map((usuario) => [usuario.id, usuario.nombre]));
+    const mapaUsuarios = new Map(
+      usuarios.map((usuario) => [usuario.id, usuario.nombre])
+    );
 
     return usuariosSeleccionados
       .map((id) => mapaUsuarios.get(id))
       .filter((nombre): nombre is string => Boolean(nombre));
   }, [usuarios, usuariosSeleccionados]);
 
-  async function guardarAsignaciones(usuariosNuevos: string[], usuariosPrevios: string[]) {
+  async function guardarAsignaciones(
+    usuariosNuevos: string[],
+    usuariosPrevios: string[]
+  ) {
     try {
       const respuesta = await fetch(
         `/api/conversaciones/${conversacionId}/asignacion`,
@@ -118,14 +123,16 @@ export function AsignacionConversacionSelector({
   }
 
   return (
-    <div className="flex min-w-[240px] flex-col items-end gap-2">
-      <label className="text-[11px] font-medium uppercase tracking-wide text-neutral-500">
+    <div className="flex min-w-[280px] flex-col gap-2">
+      <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
         Asignados a
       </label>
 
-      <div className="w-full rounded-xl border border-neutral-300 bg-white p-3">
+      <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
         {usuarios.length === 0 ? (
-          <p className="text-sm text-neutral-500">No hay empleados disponibles.</p>
+          <p className="text-sm text-slate-500">
+            No hay empleados disponibles.
+          </p>
         ) : (
           <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
             {usuarios.map((usuario) => {
@@ -134,7 +141,7 @@ export function AsignacionConversacionSelector({
               return (
                 <label
                   key={usuario.id}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-neutral-800 hover:bg-neutral-50"
+                  className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm text-slate-800 transition hover:bg-slate-50"
                 >
                   <input
                     type="checkbox"
@@ -142,9 +149,9 @@ export function AsignacionConversacionSelector({
                     checked={checked}
                     onChange={manejarCambio}
                     disabled={disabled || isPending}
-                    className="h-4 w-4 rounded border-neutral-300"
+                    className="h-4 w-4 rounded border-slate-300 text-teal-700"
                   />
-                  <span>{usuario.nombre}</span>
+                  <span className="font-medium">{usuario.nombre}</span>
                 </label>
               );
             })}
@@ -152,13 +159,15 @@ export function AsignacionConversacionSelector({
         )}
       </div>
 
-      <p className="max-w-[240px] text-right text-[11px] text-neutral-500">
+      <p className="max-w-[280px] text-[11px] leading-5 text-slate-500 xl:text-right">
         {nombresSeleccionados.length > 0
           ? nombresSeleccionados.join(", ")
           : "Sin empleados asignados"}
       </p>
 
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+      {error ? (
+        <p className="text-xs font-medium text-rose-600">{error}</p>
+      ) : null}
     </div>
   );
 }

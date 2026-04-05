@@ -127,53 +127,57 @@ export function EnviarMensaje({
 
   if (!puedeEnviar) {
     return (
-      <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-600">
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 shadow-sm">
         Esta conversación está en modo solo lectura.
       </div>
     );
   }
 
   return (
-    <div className="flex gap-2">
-      <button
-        type="button"
-        onClick={() => inputArchivoRef.current?.click()}
-        disabled={enviando || !telefono || !conversacionId}
-        className="rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-700 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        Adjuntar
-      </button>
+    <div className="rounded-[28px] border border-slate-200 bg-white/90 p-3 shadow-sm">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end">
+        <button
+          type="button"
+          onClick={() => inputArchivoRef.current?.click()}
+          disabled={enviando || !telefono || !conversacionId}
+          className="inline-flex h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Adjuntar
+        </button>
 
-      <input
-        ref={inputArchivoRef}
-        type="file"
-        className="hidden"
-        accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
-        onChange={manejarArchivo}
-      />
+        <input
+          ref={inputArchivoRef}
+          type="file"
+          className="hidden"
+          accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+          onChange={manejarArchivo}
+        />
 
-      <input
-        type="text"
-        value={texto}
-        onChange={(e) => setTexto(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            enviarTexto();
-          }
-        }}
-        placeholder="Escribe un mensaje..."
-        className="flex-1 rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none"
-      />
+        <div className="flex-1">
+          <input
+            type="text"
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                enviarTexto();
+              }
+            }}
+            placeholder="Escribe un mensaje..."
+            className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-teal-700"
+          />
+        </div>
 
-      <button
-        type="button"
-        onClick={enviarTexto}
-        disabled={enviando || !texto.trim() || !telefono || !conversacionId}
-        className="rounded-xl bg-neutral-900 px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {enviando ? "Enviando..." : "Enviar"}
-      </button>
+        <button
+          type="button"
+          onClick={enviarTexto}
+          disabled={enviando || !texto.trim() || !telefono || !conversacionId}
+          className="inline-flex h-12 items-center justify-center rounded-2xl bg-teal-700 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {enviando ? "Enviando..." : "Enviar"}
+        </button>
+      </div>
     </div>
   );
 }

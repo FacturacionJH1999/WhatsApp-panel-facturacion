@@ -65,8 +65,8 @@ export function EstadoConversacionSelector({
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      <label className="text-[11px] font-medium uppercase tracking-wide text-neutral-500">
+    <div className="flex min-w-[170px] flex-col gap-1.5">
+      <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
         Estado
       </label>
 
@@ -74,7 +74,7 @@ export function EstadoConversacionSelector({
         value={estado}
         onChange={manejarCambio}
         disabled={disabled || isPending}
-        className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-800 outline-none focus:border-black disabled:opacity-60"
+        className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-800 shadow-sm outline-none transition hover:border-slate-300 focus:border-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {OPCIONES.map((opcion) => (
           <option key={opcion.value} value={opcion.value}>
@@ -83,7 +83,9 @@ export function EstadoConversacionSelector({
         ))}
       </select>
 
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+      {error ? (
+        <p className="text-xs font-medium text-rose-600">{error}</p>
+      ) : null}
     </div>
   );
 }

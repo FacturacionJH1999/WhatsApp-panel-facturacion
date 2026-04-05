@@ -349,20 +349,20 @@ function obtenerTextoEstado(estado: EstadoConversacion) {
 function obtenerClasesEstado(estado: EstadoConversacion) {
   switch (estado) {
     case "nueva":
-      return "bg-blue-100 text-blue-700";
+      return "border border-sky-200 bg-sky-50 text-sky-700";
     case "en_proceso":
-      return "bg-amber-100 text-amber-700";
+      return "border border-amber-200 bg-amber-50 text-amber-700";
     case "cerrada":
-      return "bg-emerald-100 text-emerald-700";
+      return "border border-emerald-200 bg-emerald-50 text-emerald-700";
     default:
-      return "bg-neutral-100 text-neutral-700";
+      return "border border-slate-200 bg-slate-50 text-slate-700";
   }
 }
 
 function obtenerClasesFiltro(activo: boolean) {
   return activo
-    ? "rounded-lg border border-black bg-black px-2 py-1 text-white"
-    : "rounded-lg border border-neutral-300 px-2 py-1 text-neutral-700 hover:bg-neutral-100";
+    ? "rounded-full border border-teal-700 bg-teal-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm"
+    : "rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50";
 }
 
 function construirHrefFiltro(estado: string, busqueda: string) {
@@ -410,51 +410,54 @@ export default async function Home({
   ]);
 
   return (
-    <main className="min-h-screen bg-neutral-100">
+    <main className="min-h-screen bg-transparent">
       <AutoRefreshHome intervaloMs={3000} />
 
-      <div className="mx-auto flex min-h-screen max-w-7xl flex-col md:flex-row">
-        <aside className="w-full border-r border-neutral-200 bg-white md:w-80">
-          <div className="border-b border-neutral-200 p-4">
+      <div className="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 px-4 py-4 md:flex-row md:px-6 md:py-6">
+        <aside className="superficie-premium w-full overflow-hidden rounded-[28px] md:w-[370px] md:min-w-[370px]">
+          <div className="border-b border-slate-200/80 p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h1 className="text-xl font-semibold text-neutral-900">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  Panel principal
+                </p>
+                <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
                   Panel de WhatsApp
                 </h1>
-                <p className="mt-1 text-sm text-neutral-500">
+                <p className="mt-2 text-sm leading-6 text-slate-500">
                   {perfil.rol === "admin"
-                    ? "Conversaciones y facturas recibidas"
-                    : "Conversaciones asignadas para supervisión"}
+                    ? "Conversaciones y facturas recibidas del negocio."
+                    : "Conversaciones asignadas para supervisión."}
                 </p>
               </div>
 
               <a
                 href="/logout"
-                className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100"
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
               >
                 Salir
               </a>
             </div>
 
-            <div className="mt-4 rounded-xl bg-neutral-50 p-3">
-              <p className="text-sm font-medium text-neutral-900">
+            <div className="mt-5 rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+              <p className="text-sm font-semibold text-slate-900">
                 {perfil.nombre || perfil.email || "Usuario"}
               </p>
-              <p className="mt-1 text-xs uppercase tracking-wide text-neutral-500">
+              <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-slate-500">
                 Rol: {perfil.rol}
               </p>
             </div>
 
             {perfil.rol === "admin" ? (
-              <div className="mt-3 rounded-xl border border-neutral-200 bg-white p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+              <div className="mt-4 rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                   Administración
                 </p>
 
                 <div className="mt-3">
                   <Link
                     href="/admin/usuarios"
-                    className="inline-flex w-full items-center justify-center rounded-xl border border-black bg-black px-3 py-2 text-sm font-medium text-white transition hover:opacity-90"
+                    className="inline-flex w-full items-center justify-center rounded-2xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-800"
                   >
                     Administrar usuarios
                   </Link>
@@ -463,8 +466,8 @@ export default async function Home({
             ) : null}
           </div>
 
-          <div className="px-3 pt-3">
-            <form method="GET" className="space-y-2">
+          <div className="border-b border-slate-200/80 p-4">
+            <form method="GET" className="space-y-3">
               {estadoFiltro !== "todas" ? (
                 <input type="hidden" name="estado" value={estadoFiltro} />
               ) : null}
@@ -475,12 +478,12 @@ export default async function Home({
                   name="q"
                   defaultValue={busqueda}
                   placeholder="Buscar cliente o teléfono"
-                  className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-black"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-teal-700"
                 />
 
                 <button
                   type="submit"
-                  className="rounded-xl border border-black bg-black px-3 py-2 text-sm font-medium text-white hover:opacity-90"
+                  className="rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
                 >
                   Buscar
                 </button>
@@ -490,16 +493,16 @@ export default async function Home({
                 <div className="flex justify-end">
                   <Link
                     href={construirHrefLimpiar(estadoFiltro)}
-                    className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
+                    className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
                   >
-                    Limpiar
+                    Limpiar búsqueda
                   </Link>
                 </div>
               ) : null}
             </form>
           </div>
 
-          <div className="flex flex-wrap gap-2 px-3 pb-3 pt-3 text-xs font-medium">
+          <div className="flex flex-wrap gap-2 border-b border-slate-200/80 px-4 py-4">
             <Link
               href={construirHrefFiltro("todas", busqueda)}
               className={obtenerClasesFiltro(estadoFiltro === "todas")}
@@ -529,18 +532,18 @@ export default async function Home({
             </Link>
           </div>
 
-          <div className="space-y-3 p-3">
+          <div className="space-y-3 p-4">
             {conversaciones.length === 0 ? (
-              <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
-                <p className="text-sm font-medium text-neutral-700">
+              <div className="rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+                <p className="text-sm font-semibold text-slate-800">
                   No hay conversaciones disponibles
                 </p>
-                <p className="mt-1 text-sm text-neutral-500">
+                <p className="mt-2 text-sm leading-6 text-slate-500">
                   {busqueda.trim()
                     ? "No encontramos resultados para esa búsqueda."
                     : perfil.rol === "admin"
-                    ? "Cuando entren mensajes por WhatsApp aparecerán aquí."
-                    : "Todavía no te han asignado conversaciones."}
+                      ? "Cuando entren mensajes por WhatsApp aparecerán aquí."
+                      : "Todavía no te han asignado conversaciones."}
                 </p>
               </div>
             ) : (
@@ -548,19 +551,19 @@ export default async function Home({
                 <Link
                   key={conversacion.id}
                   href={`/chat/${conversacion.id}`}
-                  className="block rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition hover:bg-neutral-50"
+                  className="block rounded-3xl border border-slate-200 bg-white/90 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-semibold text-neutral-900">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="max-w-full truncate text-sm font-semibold text-slate-900">
                           {conversacion.contactos?.nombre?.trim() ||
                             conversacion.contactos?.telefono ||
                             "Sin nombre"}
                         </p>
 
                         <span
-                          className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${obtenerClasesEstado(
+                          className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${obtenerClasesEstado(
                             conversacion.estado
                           )}`}
                         >
@@ -568,25 +571,25 @@ export default async function Home({
                         </span>
                       </div>
 
-                      <p className="mt-1 text-xs text-neutral-500">
+                      <p className="mt-2 text-xs text-slate-500">
                         {conversacion.contactos?.telefono || "Sin teléfono"}
                       </p>
 
-                      <p className="mt-1 text-[11px] text-neutral-500">
+                      <p className="mt-2 text-[11px] text-slate-500">
                         Asignado a:{" "}
-                        <span className="font-medium text-neutral-700">
+                        <span className="font-semibold text-slate-700">
                           {conversacion.asignadoA || "Sin asignar"}
                         </span>
                       </p>
                     </div>
 
-                    <div className="flex flex-col items-end gap-1">
-                      <p className="text-[11px] text-neutral-400">
+                    <div className="flex flex-col items-end gap-2">
+                      <p className="text-[11px] text-slate-400">
                         {formatearFecha(conversacion.ultima_actividad)}
                       </p>
 
                       {conversacion.mensajes_no_leidos > 0 ? (
-                        <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">
+                        <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-rose-600 px-2 py-0.5 text-[11px] font-semibold text-white shadow-sm">
                           {conversacion.mensajes_no_leidos}
                         </span>
                       ) : null}
@@ -598,16 +601,21 @@ export default async function Home({
           </div>
         </aside>
 
-        <section className="flex flex-1 items-center justify-center p-6">
-          <div className="w-full max-w-xl rounded-2xl border border-dashed border-neutral-300 bg-white p-8 text-center shadow-sm">
-            <h2 className="text-2xl font-semibold text-neutral-900">
-              Bienvenido al panel
-            </h2>
-            <p className="mt-3 text-sm leading-6 text-neutral-500">
-              {perfil.rol === "admin"
-                ? "Aquí podrás ver y administrar todas las conversaciones del negocio."
-                : "Aquí podrás supervisar únicamente las conversaciones que te hayan sido asignadas."}
-            </p>
+        <section className="flex flex-1 items-center justify-center">
+          <div className="superficie-premium w-full max-w-2xl rounded-[32px] p-8 text-center md:p-12">
+            <div className="mx-auto max-w-xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                Centro de control
+              </p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">
+                Bienvenido al panel
+              </h2>
+              <p className="mt-4 text-sm leading-7 text-slate-500 md:text-base">
+                {perfil.rol === "admin"
+                  ? "Aquí podrás ver y administrar todas las conversaciones del negocio desde una interfaz más clara, ordenada y profesional."
+                  : "Aquí podrás supervisar únicamente las conversaciones que te hayan sido asignadas dentro del panel."}
+              </p>
+            </div>
           </div>
         </section>
       </div>

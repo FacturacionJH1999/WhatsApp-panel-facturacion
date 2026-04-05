@@ -148,7 +148,10 @@ async function obtenerConversacion(
     new Set(
       (asignaciones ?? [])
         .map((asignacion) => asignacion.usuario_id)
-        .filter((valor): valor is string => typeof valor === "string" && valor.length > 0)
+        .filter(
+          (valor): valor is string =>
+            typeof valor === "string" && valor.length > 0
+        )
     )
   );
 
@@ -162,7 +165,10 @@ async function obtenerConversacion(
         .in("id", usuariosAsignadosIds);
 
     if (errorPerfilesAsignados) {
-      console.error("Error cargando perfiles asignados:", errorPerfilesAsignados);
+      console.error(
+        "Error cargando perfiles asignados:",
+        errorPerfilesAsignados
+      );
     }
 
     const mapaPerfiles = new Map(
@@ -349,6 +355,32 @@ function esPdf(mensaje: Mensaje) {
   );
 }
 
+function obtenerClasesEstadoConversacion(estado: EstadoConversacion) {
+  switch (estado) {
+    case "nueva":
+      return "border border-sky-200 bg-sky-50 text-sky-700";
+    case "en_proceso":
+      return "border border-amber-200 bg-amber-50 text-amber-700";
+    case "cerrada":
+      return "border border-emerald-200 bg-emerald-50 text-emerald-700";
+    default:
+      return "border border-slate-200 bg-slate-50 text-slate-700";
+  }
+}
+
+function obtenerTextoEstadoConversacion(estado: EstadoConversacion) {
+  switch (estado) {
+    case "nueva":
+      return "Nueva";
+    case "en_proceso":
+      return "En proceso";
+    case "cerrada":
+      return "Cerrada";
+    default:
+      return estado;
+  }
+}
+
 function renderEstadoMedia(mensaje: Mensaje, etiqueta: string) {
   const urlDirecta = mensaje.url_archivo?.trim() || null;
   const urlConstruida =
@@ -357,9 +389,9 @@ function renderEstadoMedia(mensaje: Mensaje, etiqueta: string) {
       : null;
 
   return (
-    <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
-      <p>{etiqueta}</p>
-      <p className="mt-1 text-xs opacity-70">
+    <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+      <p className="font-medium text-slate-800">{etiqueta}</p>
+      <p className="mt-1 text-xs text-slate-500">
         Estado: {mensaje.estado_media || "sin estado"}
       </p>
 
@@ -368,7 +400,7 @@ function renderEstadoMedia(mensaje: Mensaje, etiqueta: string) {
           href={agregarVersion(urlDirecta, mensaje)}
           target="_blank"
           rel="noreferrer"
-          className="mt-2 block break-all text-xs underline"
+          className="mt-3 block break-all text-xs font-medium text-teal-700 underline underline-offset-2"
         >
           Abrir url_archivo guardada
         </a>
@@ -379,7 +411,7 @@ function renderEstadoMedia(mensaje: Mensaje, etiqueta: string) {
           href={agregarVersion(urlConstruida, mensaje)}
           target="_blank"
           rel="noreferrer"
-          className="mt-2 block break-all text-xs underline"
+          className="mt-2 block break-all text-xs font-medium text-teal-700 underline underline-offset-2"
         >
           Abrir URL construida desde storage
         </a>
@@ -395,7 +427,11 @@ function obtenerContenidoMensaje(
   const mediaUrl = obtenerUrlMedia(mensaje);
 
   if (mensaje.tipo === "text" && mensaje.texto) {
-    return <p className="mt-1 whitespace-pre-wrap text-sm">{mensaje.texto}</p>;
+    return (
+      <p className="mt-2 whitespace-pre-wrap text-sm leading-6">
+        {mensaje.texto}
+      </p>
+    );
   }
 
   if (mensaje.tipo === "image") {
@@ -441,8 +477,8 @@ function obtenerContenidoMensaje(
     }
 
     return (
-      <div className="mt-2">
-        <div className="overflow-hidden rounded-xl border border-black/10 bg-white">
+      <div className="mt-3">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <iframe
             src={mediaUrl}
             title={mensaje.nombre_archivo || "PDF recibido"}
@@ -454,7 +490,7 @@ function obtenerContenidoMensaje(
           href={mediaUrl}
           target="_blank"
           rel="noreferrer"
-          className="mt-2 inline-block text-sm underline"
+          className="mt-3 inline-block text-sm font-medium text-teal-700 underline underline-offset-2"
         >
           Abrir PDF en otra pestaña
         </a>
@@ -471,20 +507,20 @@ function obtenerContenidoMensaje(
     }
 
     return (
-      <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
-        <p className="font-medium">
+      <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+        <p className="font-semibold text-slate-800">
           📄 {mensaje.nombre_archivo || "Documento recibido"}
         </p>
 
         {mensaje.mime_type ? (
-          <p className="mt-1 text-xs opacity-70">{mensaje.mime_type}</p>
+          <p className="mt-1 text-xs text-slate-500">{mensaje.mime_type}</p>
         ) : null}
 
         <a
           href={mediaUrl}
           target="_blank"
           rel="noreferrer"
-          className="mt-2 inline-block underline"
+          className="mt-3 inline-block font-medium text-teal-700 underline underline-offset-2"
         >
           Abrir documento
         </a>
@@ -498,7 +534,7 @@ function obtenerContenidoMensaje(
     }
 
     return (
-      <div className="mt-2">
+      <div className="mt-3">
         <audio controls className="w-full">
           <source src={mediaUrl} type={mensaje.mime_type ?? "audio/mpeg"} />
           Tu navegador no soporta audio.
@@ -508,7 +544,7 @@ function obtenerContenidoMensaje(
           href={mediaUrl}
           target="_blank"
           rel="noreferrer"
-          className="mt-2 inline-block text-sm underline"
+          className="mt-3 inline-block text-sm font-medium text-teal-700 underline underline-offset-2"
         >
           Abrir audio en otra pestaña
         </a>
@@ -517,7 +553,7 @@ function obtenerContenidoMensaje(
   }
 
   return (
-    <div className="mt-2 rounded-xl border border-black/10 bg-black/5 px-3 py-2 text-sm">
+    <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
       Mensaje recibido
     </div>
   );
@@ -555,145 +591,173 @@ export default async function ChatPage({
   const itemsGaleria = construirItemsGaleria(mensajes);
 
   return (
-    <main className="h-screen overflow-hidden bg-neutral-100">
+    <main className="h-screen overflow-hidden bg-transparent">
       <AutoRefreshChat intervaloMs={3000} />
       <AutoScrollChat />
 
-      <div className="mx-auto flex h-screen max-w-5xl flex-col bg-white">
-        <header className="shrink-0 border-b border-neutral-200 px-4 py-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <Link
-                href="/"
-                prefetch={false}
-                className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50"
-              >
-                Volver
-              </Link>
+      <div className="mx-auto flex h-screen max-w-6xl flex-col px-3 py-3 md:px-5 md:py-5">
+        <div className="superficie-premium flex h-full min-h-0 flex-col overflow-hidden rounded-[30px]">
+          <header className="shrink-0 border-b border-slate-200/80 px-4 py-4 md:px-6">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+              <div className="flex min-w-0 items-start gap-3 md:gap-4">
+                <Link
+                  href="/"
+                  prefetch={false}
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                >
+                  Volver
+                </Link>
 
-              <div>
-                <h1 className="text-sm font-semibold text-neutral-900">
-                  {nombreVisibleContacto}
-                </h1>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate text-lg font-semibold tracking-tight text-slate-900 md:text-xl">
+                      {nombreVisibleContacto}
+                    </p>
 
-                <p className="text-xs text-neutral-500">
-                  {conversacion.contactos?.telefono || "Sin teléfono"}
-                </p>
-
-                {conversacion.contactos ? (
-                  <EditarAliasContacto
-                    contactoId={conversacion.contactos.id}
-                    aliasActual={conversacion.contactos.alias}
-                    puedeEditar={esAdmin}
-                  />
-                ) : null}
-
-                {conversacion.contactos?.alias?.trim() ? (
-                  <p className="mt-1 text-[11px] text-neutral-500">
-                    Nombre original:
-                    <span className="ml-1 font-medium text-neutral-700">
-                      {conversacion.contactos?.nombre?.trim() || "Sin nombre"}
+                    <span
+                      className={`inline-flex rounded-full px-3 py-1 text-[11px] font-semibold ${obtenerClasesEstadoConversacion(
+                        conversacion.estado
+                      )}`}
+                    >
+                      {obtenerTextoEstadoConversacion(conversacion.estado)}
                     </span>
+                  </div>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    {conversacion.contactos?.telefono || "Sin teléfono"}
                   </p>
-                ) : null}
 
-                <p className="mt-1 text-[11px] text-neutral-500">
-                  Línea:
-                  <span className="ml-1 font-medium text-neutral-700">
-                    {conversacion.numeroWhatsappNombre ||
-                      conversacion.numeroWhatsappTelefono ||
-                      "Sin línea"}
-                  </span>
-                </p>
+                  {conversacion.contactos ? (
+                    <div className="mt-2">
+                      <EditarAliasContacto
+                        contactoId={conversacion.contactos.id}
+                        aliasActual={conversacion.contactos.alias}
+                        puedeEditar={esAdmin}
+                      />
+                    </div>
+                  ) : null}
 
-                <p className="mt-1 text-[11px] text-neutral-500">
-                  Asignados actualmente:{" "}
-                  <span className="font-medium text-neutral-700">
-                    {conversacion.usuariosAsignadosNombres.length > 0
-                      ? conversacion.usuariosAsignadosNombres.join(", ")
-                      : "Sin asignar"}
-                  </span>
-                </p>
+                  {conversacion.contactos?.alias?.trim() ? (
+                    <p className="mt-2 text-[12px] text-slate-500">
+                      Nombre original:
+                      <span className="ml-1 font-semibold text-slate-700">
+                        {conversacion.contactos?.nombre?.trim() || "Sin nombre"}
+                      </span>
+                    </p>
+                  ) : null}
+
+                  <div className="mt-3 flex flex-col gap-1.5 text-[12px] text-slate-500">
+                    <p>
+                      Línea:
+                      <span className="ml-1 font-semibold text-slate-700">
+                        {conversacion.numeroWhatsappNombre ||
+                          conversacion.numeroWhatsappTelefono ||
+                          "Sin línea"}
+                      </span>
+                    </p>
+
+                    <p>
+                      Asignados actualmente:
+                      <span className="ml-1 font-semibold text-slate-700">
+                        {conversacion.usuariosAsignadosNombres.length > 0
+                          ? conversacion.usuariosAsignadosNombres.join(", ")
+                          : "Sin asignar"}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 xl:min-w-[320px] xl:items-end">
+                <div className="flex flex-wrap items-start justify-start gap-3 xl:justify-end">
+                  {esAdmin ? (
+                    <AsignacionConversacionSelector
+                      conversacionId={conversacion.id}
+                      usuariosActualesIds={conversacion.usuariosAsignadosIds}
+                      usuarios={usuariosAsignables}
+                    />
+                  ) : null}
+
+                  <EstadoConversacionSelector
+                    conversacionId={conversacion.id}
+                    estadoActual={conversacion.estado}
+                  />
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm xl:text-right">
+                  <p className="text-sm font-semibold text-slate-800">
+                    {perfil.nombre || perfil.email || "Usuario"}
+                  </p>
+                  <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-slate-500">
+                    {perfil.rol}
+                  </p>
+                </div>
               </div>
             </div>
+          </header>
 
-            <div className="flex items-start gap-4">
-              {esAdmin ? (
-                <AsignacionConversacionSelector
-                  conversacionId={conversacion.id}
-                  usuariosActualesIds={conversacion.usuariosAsignadosIds}
-                  usuarios={usuariosAsignables}
-                />
-              ) : null}
+          <section
+            id="contenedor-mensajes"
+            className="min-h-0 flex-1 overflow-y-auto bg-transparent px-3 py-4 md:px-5 md:py-5"
+          >
+            <div className="mx-auto flex max-w-4xl flex-col gap-4">
+              {mensajes.length === 0 ? (
+                <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 text-sm text-slate-500 shadow-sm">
+                  Esta conversación todavía no tiene mensajes.
+                </div>
+              ) : (
+                mensajes.map((mensaje) => {
+                  const esEntrante = mensaje.direccion === "entrante";
 
-              <EstadoConversacionSelector
-                conversacionId={conversacion.id}
-                estadoActual={conversacion.estado}
-              />
-
-              <div className="text-right">
-                <p className="text-xs font-medium text-neutral-700">
-                  {perfil.nombre || perfil.email || "Usuario"}
-                </p>
-                <p className="text-[11px] uppercase tracking-wide text-neutral-500">
-                  {perfil.rol}
-                </p>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <section
-          id="contenedor-mensajes"
-          className="min-h-0 flex-1 overflow-y-auto bg-neutral-50 p-4"
-        >
-          <div className="space-y-3">
-            {mensajes.length === 0 ? (
-              <div className="rounded-xl border border-neutral-200 bg-white p-4 text-sm text-neutral-500">
-                Esta conversación todavía no tiene mensajes.
-              </div>
-            ) : (
-              mensajes.map((mensaje) => {
-                const esEntrante = mensaje.direccion === "entrante";
-
-                return (
-                  <div
-                    key={mensaje.id}
-                    className={`flex ${
-                      esEntrante ? "justify-start" : "justify-end"
-                    }`}
-                  >
+                  return (
                     <div
-                      className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${
-                        esEntrante
-                          ? "bg-white text-neutral-900"
-                          : "bg-neutral-900 text-white"
+                      key={mensaje.id}
+                      className={`flex ${
+                        esEntrante ? "justify-start" : "justify-end"
                       }`}
                     >
-                      <p className="text-xs opacity-70">
-                        {obtenerEtiquetaTipoMensaje(mensaje)}
-                      </p>
+                      <div
+                        className={`max-w-[88%] rounded-[24px] border px-4 py-3 shadow-sm md:max-w-[78%] ${
+                          esEntrante
+                            ? "border-slate-200 bg-white text-slate-900"
+                            : "border-teal-700 bg-teal-700 text-white"
+                        }`}
+                      >
+                        <p
+                          className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${
+                            esEntrante ? "text-slate-400" : "text-white/70"
+                          }`}
+                        >
+                          {obtenerEtiquetaTipoMensaje(mensaje)}
+                        </p>
 
-                      {obtenerContenidoMensaje(mensaje, itemsGaleria)}
+                        {obtenerContenidoMensaje(mensaje, itemsGaleria)}
 
-                      <p className="mt-2 text-[11px] opacity-60">
-                        {formatearHora(mensaje.fecha_mensaje)}
-                      </p>
+                        <p
+                          className={`mt-3 text-[11px] ${
+                            esEntrante ? "text-slate-400" : "text-white/70"
+                          }`}
+                        >
+                          {formatearHora(mensaje.fecha_mensaje)}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </section>
+                  );
+                })
+              )}
+            </div>
+          </section>
 
-        <footer className="shrink-0 border-t border-neutral-200 bg-white p-3">
-          <EnviarMensaje
-            telefono={conversacion.contactos?.telefono || ""}
-            conversacionId={conversacion.id}
-            puedeEnviar={esAdmin}
-          />
-        </footer>
+          <footer className="shrink-0 border-t border-slate-200/80 bg-white/80 p-3 md:p-4">
+            <div className="mx-auto max-w-4xl">
+              <EnviarMensaje
+                telefono={conversacion.contactos?.telefono || ""}
+                conversacionId={conversacion.id}
+                puedeEnviar={esAdmin}
+              />
+            </div>
+          </footer>
+        </div>
       </div>
     </main>
   );
