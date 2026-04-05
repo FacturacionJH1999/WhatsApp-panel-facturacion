@@ -34,6 +34,65 @@ function obtenerExtensionDesdeMimeType(mimeType: string | null) {
   return mapaExtensiones[mimeType] ?? mimeType.split("/")[1] ?? "bin";
 }
 
+async function esperar(ms: number) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function extraerMensajeError(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof (error as { message: unknown }).message === "string"
+  ) {
+    return (error as { message: string }).message;
+  }
+
+  return String(error);
+}
+
+function esErrorTransitorioStorage(error: unknown) {
+  const mensaje = extraerMensajeError(error).toLowerCase();
+
+  if (
+    mensaje.includes("timed out") ||
+    mensaje.includes("timeout") ||
+    mensaje.includes("connection") ||
+    mensaje.includes("network") ||
+    mensaje.includes("tempor")
+  ) {
+    return true;
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    typeof (error as { status: unknown }).status === "number"
+  ) {
+    const status = (error as { status: number }).status;
+    return status >= 500;
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "statusCode" in error &&
+    typeof (error as { statusCode: unknown }).statusCode === "string"
+  ) {
+    const statusCode = Number((error as { statusCode: string }).statusCode);
+    if (!Number.isNaN(statusCode) && statusCode >= 500) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 async function marcarMediaComoError(mensajeId: string) {
   const { error } = await supabaseAdmin
     .from("mensajes")
@@ -45,6 +104,139 @@ async function marcarMediaComoError(mensajeId: string) {
   if (error) {
     console.error("Error marcando media como error:", error);
   }
+}
+
+async function subirArchivoAStorageConReintentos(params: {
+  bucket: string;
+  storagePath: string;
+  fileBuffer: Buffer;
+  contentType: string;
+  mensajeId: string;
+  mediaId: string;
+  numeroWhatsappId: string;
+  numero: string | null;
+  intentosMaximos?: number;
+}) {
+  const {
+    bucket,
+    storagePath,
+    fileBuffer,
+    contentType,
+    mensajeId,
+    mediaId,
+    numeroWhatsappId,
+    numero,
+    intentosMaximos = 3,
+  } = params;
+
+  let ultimoError: unknown = null;
+
+  for (let intento = 1; intento <= intentosMaximos; intento++) {
+    try {
+      console.log("Subiendo media a storage:", {
+        intento,
+        intentosMaximos,
+        mensajeId,
+        mediaId,
+        storagePath,
+        bucket,
+        numeroWhatsappId,
+        numero,
+        tamanoBytes: fileBuffer.length,
+        contentType,
+      });
+
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from(bucket)
+        .upload(storagePath, fileBuffer, {
+          contentType,
+          upsert: true,
+        });
+
+      if (!uploadError) {
+        console.log("Media subida a storage correctamente:", {
+          intento,
+          mensajeId,
+          mediaId,
+          storagePath,
+          bucket,
+          numeroWhatsappId,
+          numero,
+        });
+        return;
+      }
+
+      ultimoError = uploadError;
+
+      console.error("Error subiendo a storage:", {
+        intento,
+        intentosMaximos,
+        mensajeId,
+        mediaId,
+        storagePath,
+        bucket,
+        numeroWhatsappId,
+        numero,
+        error: uploadError,
+      });
+
+      const debeReintentar =
+        intento < intentosMaximos && esErrorTransitorioStorage(uploadError);
+
+      if (!debeReintentar) {
+        throw uploadError;
+      }
+
+      const esperaMs = intento * 1000;
+
+      console.warn("Reintentando subida a storage tras error transitorio:", {
+        intentoActual: intento,
+        siguienteIntento: intento + 1,
+        esperaMs,
+        mensajeId,
+        mediaId,
+        storagePath,
+      });
+
+      await esperar(esperaMs);
+    } catch (error) {
+      ultimoError = error;
+
+      console.error("Excepción durante subida a storage:", {
+        intento,
+        intentosMaximos,
+        mensajeId,
+        mediaId,
+        storagePath,
+        bucket,
+        numeroWhatsappId,
+        numero,
+        error,
+      });
+
+      const debeReintentar =
+        intento < intentosMaximos && esErrorTransitorioStorage(error);
+
+      if (!debeReintentar) {
+        throw error;
+      }
+
+      const esperaMs = intento * 1000;
+
+      console.warn("Reintentando subida a storage por excepción transitoria:", {
+        intentoActual: intento,
+        siguienteIntento: intento + 1,
+        esperaMs,
+        mensajeId,
+        mediaId,
+        storagePath,
+      });
+
+      await esperar(esperaMs);
+    }
+  }
+
+  throw ultimoError ?? new Error("No se pudo subir el archivo a storage");
 }
 
 export async function descargarYGuardarMedia({
@@ -85,11 +277,14 @@ export async function descargarYGuardarMedia({
 
       if (!infoResponse.ok) {
         const bodyError = await infoResponse.text().catch(() => "");
-        console.error(
-          "Error obteniendo media info:",
-          infoResponse.status,
-          bodyError
-        );
+        console.error("Error obteniendo media info:", {
+          mensajeId,
+          mediaId,
+          status: infoResponse.status,
+          bodyError,
+          numeroWhatsappId: configNumero.id,
+          numero: configNumero.numero,
+        });
         await marcarMediaComoError(mensajeId);
         return;
       }
@@ -97,7 +292,12 @@ export async function descargarYGuardarMedia({
       const info = await infoResponse.json();
 
       if (!info?.url) {
-        console.error("Media sin URL");
+        console.error("Media sin URL", {
+          mensajeId,
+          mediaId,
+          numeroWhatsappId: configNumero.id,
+          numero: configNumero.numero,
+        });
         await marcarMediaComoError(mensajeId);
         return;
       }
@@ -106,7 +306,12 @@ export async function descargarYGuardarMedia({
     }
 
     if (!downloadUrl) {
-      console.error("No se pudo resolver downloadUrl para la media");
+      console.error("No se pudo resolver downloadUrl para la media", {
+        mensajeId,
+        mediaId,
+        numeroWhatsappId: configNumero.id,
+        numero: configNumero.numero,
+      });
       await marcarMediaComoError(mensajeId);
       return;
     }
@@ -130,7 +335,14 @@ export async function descargarYGuardarMedia({
 
     if (!mediaResponse.ok) {
       const bodyError = await mediaResponse.text().catch(() => "");
-      console.error("Error descargando media:", mediaResponse.status, bodyError);
+      console.error("Error descargando media:", {
+        mensajeId,
+        mediaId,
+        status: mediaResponse.status,
+        bodyError,
+        numeroWhatsappId: configNumero.id,
+        numero: configNumero.numero,
+      });
       await marcarMediaComoError(mensajeId);
       return;
     }
@@ -140,19 +352,19 @@ export async function descargarYGuardarMedia({
 
     const extension = obtenerExtensionDesdeMimeType(mimeType);
     const storagePath = `whatsapp/${mensajeId}.${extension}`;
+    const contentType = mimeType ?? "application/octet-stream";
 
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from("whatsapp-media")
-      .upload(storagePath, fileBuffer, {
-        contentType: mimeType ?? "application/octet-stream",
-        upsert: true,
-      });
-
-    if (uploadError) {
-      console.error("Error subiendo a storage:", uploadError);
-      await marcarMediaComoError(mensajeId);
-      return;
-    }
+    await subirArchivoAStorageConReintentos({
+      bucket: "whatsapp-media",
+      storagePath,
+      fileBuffer,
+      contentType,
+      mensajeId,
+      mediaId,
+      numeroWhatsappId: configNumero.id,
+      numero: configNumero.numero,
+      intentosMaximos: 3,
+    });
 
     const { data } = supabaseAdmin.storage
       .from("whatsapp-media")
@@ -170,10 +382,14 @@ export async function descargarYGuardarMedia({
       .eq("id", mensajeId);
 
     if (errorActualizarMensaje) {
-      console.error(
-        "Error actualizando mensaje con media:",
-        errorActualizarMensaje
-      );
+      console.error("Error actualizando mensaje con media:", {
+        mensajeId,
+        mediaId,
+        storagePath,
+        numeroWhatsappId: configNumero.id,
+        numero: configNumero.numero,
+        error: errorActualizarMensaje,
+      });
       return;
     }
 
@@ -186,7 +402,13 @@ export async function descargarYGuardarMedia({
       numero: configNumero.numero,
     });
   } catch (error) {
-    console.error("Error guardando media:", error);
+    console.error("Error guardando media:", {
+      mensajeId,
+      mediaId,
+      numeroWhatsappId,
+      phoneNumberId,
+      error,
+    });
     await marcarMediaComoError(mensajeId);
   }
 }
